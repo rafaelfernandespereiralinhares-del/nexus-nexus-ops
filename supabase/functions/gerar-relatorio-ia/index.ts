@@ -3,16 +3,57 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // === Authentication: verify caller has DIRETORIA or ADMIN role ===
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const callerClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const callerId = claimsData.claims.sub;
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Verify role
+    const { data: callerRoles } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+
+    if (!callerRoles?.some((r: { role: string }) => r.role === "DIRETORIA" || r.role === "ADMIN")) {
+      return new Response(JSON.stringify({ error: "Acesso restrito a diretoria" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify empresa_id matches caller's company
     const { empresa_id } = await req.json();
 
-    // Server-side validation
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!empresa_id || !uuidRegex.test(empresa_id)) {
       return new Response(JSON.stringify({ error: "ID de empresa inválido" }), {
@@ -20,19 +61,27 @@ serve(async (req) => {
       });
     }
 
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("empresa_id")
+      .eq("user_id", callerId)
+      .single();
+
+    // Non-ADMIN users can only generate reports for their own company
+    const isAdmin = callerRoles?.some((r: { role: string }) => r.role === "ADMIN");
+    if (!isAdmin && callerProfile?.empresa_id !== empresa_id) {
+      return new Response(JSON.stringify({ error: "Acesso negado a esta empresa" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     const hoje = new Date().toISOString().slice(0, 10);
     const mesAtual = hoje.slice(0, 7);
     const seteDiasAtras = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-    // Fetch data
     const [fechRes, metasRes, concRes, receberRes, lojasRes] = await Promise.all([
       supabaseAdmin.from("fechamentos").select("*").eq("empresa_id", empresa_id).is("deleted_at", null).gte("data", seteDiasAtras),
       supabaseAdmin.from("metas").select("*").eq("empresa_id", empresa_id).eq("mes", mesAtual),
@@ -87,7 +136,6 @@ Formato: relatório executivo conciso com bullet points.`;
     const aiData = await aiResp.json();
     const texto = aiData.choices?.[0]?.message?.content || "Sem conteúdo gerado.";
 
-    // Save to database
     await supabaseAdmin.from("relatorios_ia").insert({
       empresa_id,
       data: hoje,
