@@ -25,6 +25,7 @@ export default function AppSidebar() {
   if (primaryRole === 'ADMIN') {
     navItems.push(
       { label: 'Empresas', icon: Building2, path: '/admin/empresas' },
+      { label: 'Lojas', icon: Store, path: '/admin/lojas' },
       { label: 'Usuários', icon: Users, path: '/admin/usuarios' },
     );
   }
