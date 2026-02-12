@@ -11,6 +11,15 @@ serve(async (req) => {
 
   try {
     const { empresa_id } = await req.json();
+
+    // Server-side validation
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!empresa_id || !uuidRegex.test(empresa_id)) {
+      return new Response(JSON.stringify({ error: "ID de empresa inválido" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
