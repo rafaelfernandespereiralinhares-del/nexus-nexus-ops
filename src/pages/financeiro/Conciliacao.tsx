@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileCheck, Download } from 'lucide-react';
-import { exportToCSV, parseCSV } from '@/lib/csv';
+import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
@@ -38,13 +38,20 @@ export default function Conciliacao() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    const { rows, columns: cols } = parseCSV(text);
+    let rows: Record<string, any>[];
+    let cols: string[];
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      const buffer = await file.arrayBuffer();
+      ({ rows, columns: cols } = parseExcel(buffer));
+    } else {
+      const text = await file.text();
+      ({ rows, columns: cols } = parseCSV(text));
+    }
     if (rows.length > 0) {
       setColumns(cols);
       setParsedRows(rows);
     } else {
-      toast({ title: 'Erro', description: 'Arquivo vazio ou formato inválido. Use CSV.', variant: 'destructive' });
+      toast({ title: 'Erro', description: 'Arquivo vazio ou formato inválido.', variant: 'destructive' });
     }
   };
 
@@ -88,14 +95,36 @@ export default function Conciliacao() {
       diferenca: Number(c.diferenca).toFixed(2),
       status: c.status,
     }));
-    exportToCSV(csvData, 'conciliacoes', [
+    const cols = [
       { key: 'data', label: 'Data' },
       { key: 'loja', label: 'Loja' },
       { key: 'valor_pdv', label: 'Valor PDV' },
       { key: 'valor_caixa', label: 'Valor Caixa' },
       { key: 'diferenca', label: 'Diferença' },
       { key: 'status', label: 'Status' },
-    ]);
+    ];
+    exportToCSV(csvData, 'conciliacoes', cols);
+    toast({ title: 'Exportado!' });
+  };
+
+  const handleExportExcel = () => {
+    const csvData = conciliacoes.map(c => ({
+      data: new Date(c.data).toLocaleDateString('pt-BR'),
+      loja: lojas.find(l => l.id === c.loja_id)?.nome ?? '-',
+      valor_pdv: Number(c.valor_pdv).toFixed(2),
+      valor_caixa: Number(c.valor_caixa).toFixed(2),
+      diferenca: Number(c.diferenca).toFixed(2),
+      status: c.status,
+    }));
+    const cols = [
+      { key: 'data', label: 'Data' },
+      { key: 'loja', label: 'Loja' },
+      { key: 'valor_pdv', label: 'Valor PDV' },
+      { key: 'valor_caixa', label: 'Valor Caixa' },
+      { key: 'diferenca', label: 'Diferença' },
+      { key: 'status', label: 'Status' },
+    ];
+    exportToExcel(csvData, 'conciliacoes', cols);
     toast({ title: 'Exportado!' });
   };
 
@@ -126,7 +155,7 @@ export default function Conciliacao() {
             </div>
             <div className="space-y-1.5">
               <Label>Arquivo CSV/Excel</Label>
-              <Input type="file" accept=".csv" ref={fileRef} onChange={handleFile} />
+              <Input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleFile} />
             </div>
           </div>
 
@@ -152,9 +181,14 @@ export default function Conciliacao() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Histórico de Conciliações</CardTitle>
-            <Button variant="outline" onClick={handleExport} className="gap-2" disabled={conciliacoes.length === 0}>
-              <Download className="h-4 w-4" /> Exportar CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleExport} className="gap-2" disabled={conciliacoes.length === 0}>
+                <Download className="h-4 w-4" /> CSV
+              </Button>
+              <Button variant="outline" onClick={handleExportExcel} className="gap-2" disabled={conciliacoes.length === 0}>
+                <Download className="h-4 w-4" /> Excel
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

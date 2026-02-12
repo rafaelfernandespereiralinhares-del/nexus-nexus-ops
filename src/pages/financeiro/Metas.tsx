@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Target, Save, Download, Upload } from 'lucide-react';
 import { validateOrError, metaSchema } from '@/lib/validation';
-import { exportToCSV, parseCSV } from '@/lib/csv';
+import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
@@ -84,20 +84,44 @@ export default function Metas() {
       meta_mensal: Number(m.meta_mensal).toFixed(2),
       meta_diaria: Number(m.meta_diaria).toFixed(2),
     }));
-    exportToCSV(data, 'metas', [
+    const cols = [
       { key: 'mes', label: 'Mês' },
       { key: 'loja', label: 'Loja' },
       { key: 'meta_mensal', label: 'Meta Mensal' },
       { key: 'meta_diaria', label: 'Meta Diária' },
-    ]);
+    ];
+    exportToCSV(data, 'metas', cols);
+    toast({ title: 'Exportado!' });
+  };
+
+  const handleExportExcel = () => {
+    const data = metas.map(m => ({
+      mes: m.mes,
+      loja: lojas.find(l => l.id === m.loja_id)?.nome ?? '-',
+      meta_mensal: Number(m.meta_mensal).toFixed(2),
+      meta_diaria: Number(m.meta_diaria).toFixed(2),
+    }));
+    const cols = [
+      { key: 'mes', label: 'Mês' },
+      { key: 'loja', label: 'Loja' },
+      { key: 'meta_mensal', label: 'Meta Mensal' },
+      { key: 'meta_diaria', label: 'Meta Diária' },
+    ];
+    exportToExcel(data, 'metas', cols);
     toast({ title: 'Exportado!' });
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile?.empresa_id) return;
-    const text = await file.text();
-    const { rows } = parseCSV(text);
+    let rows: Record<string, string>[];
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      const buffer = await file.arrayBuffer();
+      ({ rows } = parseExcel(buffer));
+    } else {
+      const text = await file.text();
+      ({ rows } = parseCSV(text));
+    }
     if (rows.length === 0) {
       toast({ title: 'Erro', description: 'Arquivo vazio ou inválido', variant: 'destructive' });
       return;
@@ -130,12 +154,15 @@ export default function Metas() {
         <h1 className="font-display text-2xl font-bold">Metas</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2" disabled={metas.length === 0}>
-            <Download className="h-4 w-4" /> Exportar
+            <Download className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} className="gap-2" disabled={metas.length === 0}>
+            <Download className="h-4 w-4" /> Excel
           </Button>
           <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
-            <Upload className="h-4 w-4" /> Importar CSV
+            <Upload className="h-4 w-4" /> Importar
           </Button>
-          <input type="file" accept=".csv" ref={fileRef} onChange={handleImport} className="hidden" />
+          <input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleImport} className="hidden" />
         </div>
       </div>
 
