@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Users } from 'lucide-react';
+import { validateOrError, usuarioSchema } from '@/lib/validation';
 
 export default function AdminUsuarios() {
   const { toast } = useToast();
@@ -40,7 +41,8 @@ export default function AdminUsuarios() {
   };
 
   const handleCreate = async () => {
-    // 1. Create auth user via edge function
+    const v = validateOrError(usuarioSchema, form);
+    if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
     const { data: fnData, error: fnError } = await supabase.functions.invoke('create-user', {
       body: {
         email: form.email,

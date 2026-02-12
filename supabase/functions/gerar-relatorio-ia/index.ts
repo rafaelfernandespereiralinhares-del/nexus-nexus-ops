@@ -89,8 +89,8 @@ Formato: relatório executivo conciso com bullet points.`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
+    console.error("gerar-relatorio-ia error:", e);
+    return new Response(JSON.stringify({ error: "Erro ao gerar relatório. Tente novamente." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, AlertTriangle } from 'lucide-react';
+import { validateOrError, auditoriaSchema } from '@/lib/validation';
 
 interface Loja { id: string; nome: string; }
 
@@ -38,6 +39,8 @@ export default function Auditoria() {
 
   const handleSave = async () => {
     if (!profile?.empresa_id) return;
+    const v = validateOrError(auditoriaSchema, { loja_id: form.loja_id, tipo: form.tipo, descricao: form.descricao || undefined, valor: form.valor ? parseFloat(form.valor) : undefined });
+    if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
     const { error } = await supabase.from('auditorias').insert({
       empresa_id: profile.empresa_id,
       loja_id: form.loja_id,

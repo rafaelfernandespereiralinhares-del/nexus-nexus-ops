@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileCheck } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
 
 interface Loja { id: string; nome: string; }
 
@@ -35,16 +35,29 @@ export default function Conciliacao() {
       .then(({ data }) => { if (data) setConciliacoes(data); });
   }, [profile]);
 
+  const parseCSV = (text: string): Record<string, any>[] => {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return [];
+    const separator = lines[0].includes(';') ? ';' : ',';
+    const headers = lines[0].split(separator).map(h => h.trim().replace(/^"|"$/g, ''));
+    return lines.slice(1).map(line => {
+      const vals = line.split(separator).map(v => v.trim().replace(/^"|"$/g, ''));
+      const row: Record<string, any> = {};
+      headers.forEach((h, i) => { row[h] = vals[i] ?? ''; });
+      return row;
+    });
+  };
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab);
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
+    const text = await file.text();
+    const json = parseCSV(text);
     if (json.length > 0) {
       setColumns(Object.keys(json[0]));
       setParsedRows(json);
+    } else {
+      toast({ title: 'Erro', description: 'Arquivo vazio ou formato inválido. Use CSV.', variant: 'destructive' });
     }
   };
 
@@ -108,7 +121,7 @@ export default function Conciliacao() {
             </div>
             <div className="space-y-1.5">
               <Label>Arquivo CSV/Excel</Label>
-              <Input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleFile} />
+              <Input type="file" accept=".csv" ref={fileRef} onChange={handleFile} />
             </div>
           </div>
 

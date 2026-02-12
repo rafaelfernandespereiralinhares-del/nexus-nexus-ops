@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, CreditCard } from 'lucide-react';
+import { validateOrError, contaPagarSchema } from '@/lib/validation';
 
 interface Loja { id: string; nome: string; }
 
@@ -37,6 +38,8 @@ export default function ContasPagar() {
 
   const handleSave = async () => {
     if (!profile?.empresa_id) return;
+    const v = validateOrError(contaPagarSchema, { loja_id: form.loja_id, fornecedor: form.fornecedor, valor: parseFloat(form.valor), vencimento: form.vencimento });
+    if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
     const { error } = await supabase.from('contas_pagar').insert({
       empresa_id: profile.empresa_id,
       loja_id: form.loja_id,
