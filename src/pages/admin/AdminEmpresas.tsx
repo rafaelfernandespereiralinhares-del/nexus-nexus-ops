@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Building2 } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
 import { validateOrError, empresaSchema } from '@/lib/validation';
+import { exportToCSV } from '@/lib/csv';
 
 export default function AdminEmpresas() {
   const { toast } = useToast();
@@ -19,9 +20,7 @@ export default function AdminEmpresas() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ nome: '', plano_id: '' });
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
     const [e, p] = await Promise.all([
@@ -54,30 +53,51 @@ export default function AdminEmpresas() {
     fetchAll();
   };
 
+  const handleExport = () => {
+    const data = empresas.map(e => ({
+      nome: e.nome,
+      plano: planos.find(p => p.id === e.plano_id)?.nome ?? '-',
+      status: e.ativo ? 'Ativa' : 'Inativa',
+      criada_em: new Date(e.created_at).toLocaleDateString('pt-BR'),
+    }));
+    exportToCSV(data, 'empresas', [
+      { key: 'nome', label: 'Nome' },
+      { key: 'plano', label: 'Plano' },
+      { key: 'status', label: 'Status' },
+      { key: 'criada_em', label: 'Criada em' },
+    ]);
+    toast({ title: 'Exportado!' });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Empresas</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Empresa</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nova Empresa</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Nome</Label>
-                <Input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} className="gap-2" disabled={empresas.length === 0}>
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Empresa</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Nova Empresa</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Nome</Label>
+                  <Input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Plano</Label>
+                  <Select value={form.plano_id} onValueChange={v => setForm(p => ({ ...p, plano_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{planos.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleSave} className="w-full">Criar Empresa</Button>
               </div>
-              <div className="space-y-1.5">
-                <Label>Plano</Label>
-                <Select value={form.plano_id} onValueChange={v => setForm(p => ({ ...p, plano_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{planos.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleSave} className="w-full">Criar Empresa</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>

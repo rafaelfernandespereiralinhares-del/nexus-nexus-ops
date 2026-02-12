@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,14 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Target, Save } from 'lucide-react';
+import { Target, Save, Download, Upload } from 'lucide-react';
 import { validateOrError, metaSchema } from '@/lib/validation';
+import { exportToCSV, parseCSV } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
 export default function Metas() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [lojaId, setLojaId] = useState('');
   const [mes, setMes] = useState(new Date().toISOString().slice(0, 7));
@@ -75,9 +77,67 @@ export default function Metas() {
     setMetaDiaria(String(m.meta_diaria));
   };
 
+  const handleExport = () => {
+    const data = metas.map(m => ({
+      mes: m.mes,
+      loja: lojas.find(l => l.id === m.loja_id)?.nome ?? '-',
+      meta_mensal: Number(m.meta_mensal).toFixed(2),
+      meta_diaria: Number(m.meta_diaria).toFixed(2),
+    }));
+    exportToCSV(data, 'metas', [
+      { key: 'mes', label: 'Mês' },
+      { key: 'loja', label: 'Loja' },
+      { key: 'meta_mensal', label: 'Meta Mensal' },
+      { key: 'meta_diaria', label: 'Meta Diária' },
+    ]);
+    toast({ title: 'Exportado!' });
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.empresa_id) return;
+    const text = await file.text();
+    const { rows } = parseCSV(text);
+    if (rows.length === 0) {
+      toast({ title: 'Erro', description: 'Arquivo vazio ou inválido', variant: 'destructive' });
+      return;
+    }
+    let imported = 0;
+    for (const row of rows) {
+      const mesVal = row['Mês'] || row['mes'] || row['Mes'];
+      const lojaNome = row['Loja'] || row['loja'];
+      const metaMensalVal = parseFloat((row['Meta Mensal'] || row['meta_mensal'] || '0').replace(',', '.'));
+      const metaDiariaVal = parseFloat((row['Meta Diária'] || row['meta_diaria'] || row['Meta Diaria'] || '0').replace(',', '.'));
+      const loja = lojas.find(l => l.nome.toLowerCase() === lojaNome?.toLowerCase());
+      if (!mesVal || !loja) continue;
+      const { error } = await supabase.from('metas').insert({
+        empresa_id: profile.empresa_id,
+        loja_id: loja.id,
+        mes: mesVal,
+        meta_mensal: metaMensalVal,
+        meta_diaria: metaDiariaVal,
+      });
+      if (!error) imported++;
+    }
+    toast({ title: `${imported} metas importadas de ${rows.length}` });
+    if (fileRef.current) fileRef.current.value = '';
+    fetchMetas();
+  };
+
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-bold">Metas</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl font-bold">Metas</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} className="gap-2" disabled={metas.length === 0}>
+            <Download className="h-4 w-4" /> Exportar
+          </Button>
+          <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
+            <Upload className="h-4 w-4" /> Importar CSV
+          </Button>
+          <input type="file" accept=".csv" ref={fileRef} onChange={handleImport} className="hidden" />
+        </div>
+      </div>
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Target className="h-4 w-4" /> {editId ? 'Editar' : 'Nova'} Meta</CardTitle></CardHeader>

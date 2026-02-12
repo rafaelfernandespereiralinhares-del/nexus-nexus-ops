@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileCheck } from 'lucide-react';
-
+import { Upload, FileCheck, Download } from 'lucide-react';
+import { exportToCSV, parseCSV } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
@@ -35,27 +35,14 @@ export default function Conciliacao() {
       .then(({ data }) => { if (data) setConciliacoes(data); });
   }, [profile]);
 
-  const parseCSV = (text: string): Record<string, any>[] => {
-    const lines = text.trim().split('\n');
-    if (lines.length < 2) return [];
-    const separator = lines[0].includes(';') ? ';' : ',';
-    const headers = lines[0].split(separator).map(h => h.trim().replace(/^"|"$/g, ''));
-    return lines.slice(1).map(line => {
-      const vals = line.split(separator).map(v => v.trim().replace(/^"|"$/g, ''));
-      const row: Record<string, any> = {};
-      headers.forEach((h, i) => { row[h] = vals[i] ?? ''; });
-      return row;
-    });
-  };
-
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-    const json = parseCSV(text);
-    if (json.length > 0) {
-      setColumns(Object.keys(json[0]));
-      setParsedRows(json);
+    const { rows, columns: cols } = parseCSV(text);
+    if (rows.length > 0) {
+      setColumns(cols);
+      setParsedRows(rows);
     } else {
       toast({ title: 'Erro', description: 'Arquivo vazio ou formato inválido. Use CSV.', variant: 'destructive' });
     }
@@ -65,7 +52,6 @@ export default function Conciliacao() {
     if (!lojaId || !valorCol || !profile?.empresa_id) return;
     const totalPdv = parsedRows.reduce((sum, r) => sum + (parseFloat(r[valorCol]) || 0), 0);
 
-    // Get caixa value for that date/store
     const { data: fech } = await supabase.from('fechamentos').select('total_entradas')
       .eq('loja_id', lojaId).eq('data', data).is('deleted_at', null).single();
 
@@ -88,10 +74,29 @@ export default function Conciliacao() {
       toast({ title: 'Conciliação registrada!' });
       setParsedRows([]);
       setColumns([]);
-      // Refresh list
       const { data: updated } = await supabase.from('conciliacoes').select('*').eq('empresa_id', profile.empresa_id).order('data', { ascending: false }).limit(50);
       if (updated) setConciliacoes(updated);
     }
+  };
+
+  const handleExport = () => {
+    const csvData = conciliacoes.map(c => ({
+      data: new Date(c.data).toLocaleDateString('pt-BR'),
+      loja: lojas.find(l => l.id === c.loja_id)?.nome ?? '-',
+      valor_pdv: Number(c.valor_pdv).toFixed(2),
+      valor_caixa: Number(c.valor_caixa).toFixed(2),
+      diferenca: Number(c.diferenca).toFixed(2),
+      status: c.status,
+    }));
+    exportToCSV(csvData, 'conciliacoes', [
+      { key: 'data', label: 'Data' },
+      { key: 'loja', label: 'Loja' },
+      { key: 'valor_pdv', label: 'Valor PDV' },
+      { key: 'valor_caixa', label: 'Valor Caixa' },
+      { key: 'diferenca', label: 'Diferença' },
+      { key: 'status', label: 'Status' },
+    ]);
+    toast({ title: 'Exportado!' });
   };
 
   const statusBadge = (s: string) => {
@@ -144,7 +149,14 @@ export default function Conciliacao() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Histórico de Conciliações</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Histórico de Conciliações</CardTitle>
+            <Button variant="outline" onClick={handleExport} className="gap-2" disabled={conciliacoes.length === 0}>
+              <Download className="h-4 w-4" /> Exportar CSV
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>

@@ -24,7 +24,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   if (!session) return <Navigate to="/login" replace />;
 
   if (allowedRoles && allowedRoles.length > 0) {
-    const hasAccess = allowedRoles.some(r => roles.includes(r));
+    const isAdmin = roles.includes('ADMIN');
+    const hasAccess = isAdmin || allowedRoles.some(r => roles.includes(r));
     if (!hasAccess) return <Navigate to="/sem-permissao" replace />;
   }
 
