@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Store } from 'lucide-react';
+import { validateOrError, lojaSchema } from '@/lib/validation';
 
 export default function AdminLojas() {
   const { toast } = useToast();
@@ -30,7 +31,8 @@ export default function AdminLojas() {
   };
 
   const handleSave = async () => {
-    if (!form.nome || !form.empresa_id) return;
+    const v = validateOrError(lojaSchema, form);
+    if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
     const { error } = await supabase.from('lojas').insert({
       nome: form.nome,
       empresa_id: form.empresa_id,

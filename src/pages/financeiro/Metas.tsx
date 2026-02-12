@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Target, Save } from 'lucide-react';
+import { validateOrError, metaSchema } from '@/lib/validation';
 
 interface Loja { id: string; nome: string; }
 
@@ -37,7 +38,9 @@ export default function Metas() {
   };
 
   const handleSave = async () => {
-    if (!lojaId || !profile?.empresa_id) return;
+    if (!profile?.empresa_id) return;
+    const v = validateOrError(metaSchema, { loja_id: lojaId, mes, meta_mensal: parseFloat(metaMensal) || 0, meta_diaria: parseFloat(metaDiaria) || 0 });
+    if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
     const payload = {
       empresa_id: profile.empresa_id,
       loja_id: lojaId,

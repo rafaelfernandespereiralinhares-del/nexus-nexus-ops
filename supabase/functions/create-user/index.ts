@@ -46,7 +46,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), {
+    console.error("create-user error:", e);
+    const msg = e.message?.includes("already been registered")
+      ? "Este email já está cadastrado"
+      : "Erro ao criar usuário. Tente novamente.";
+    return new Response(JSON.stringify({ error: msg }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
