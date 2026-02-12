@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Store } from 'lucide-react';
+import { Plus, Store, Download } from 'lucide-react';
 import { validateOrError, lojaSchema } from '@/lib/validation';
+import { exportToCSV } from '@/lib/csv';
 
 export default function AdminLojas() {
   const { toast } = useToast();
@@ -33,10 +34,7 @@ export default function AdminLojas() {
   const handleSave = async () => {
     const v = validateOrError(lojaSchema, form);
     if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
-    const { error } = await supabase.from('lojas').insert({
-      nome: form.nome,
-      empresa_id: form.empresa_id,
-    });
+    const { error } = await supabase.from('lojas').insert({ nome: form.nome, empresa_id: form.empresa_id });
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {
@@ -52,30 +50,51 @@ export default function AdminLojas() {
     fetchAll();
   };
 
+  const handleExport = () => {
+    const data = lojas.map(l => ({
+      nome: l.nome,
+      empresa: empresas.find(e => e.id === l.empresa_id)?.nome ?? '-',
+      status: l.ativa ? 'Ativa' : 'Inativa',
+      criada_em: new Date(l.created_at).toLocaleDateString('pt-BR'),
+    }));
+    exportToCSV(data, 'lojas', [
+      { key: 'nome', label: 'Nome' },
+      { key: 'empresa', label: 'Empresa' },
+      { key: 'status', label: 'Status' },
+      { key: 'criada_em', label: 'Criada em' },
+    ]);
+    toast({ title: 'Exportado!' });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Lojas</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Loja</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nova Loja</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Empresa</Label>
-                <Select value={form.empresa_id} onValueChange={v => setForm(p => ({ ...p, empresa_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
-                </Select>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} className="gap-2" disabled={lojas.length === 0}>
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Loja</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Nova Loja</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Empresa</Label>
+                  <Select value={form.empresa_id} onValueChange={v => setForm(p => ({ ...p, empresa_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{empresas.map(e => <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nome da Loja</Label>
+                  <Input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Loja Centro" />
+                </div>
+                <Button onClick={handleSave} className="w-full">Criar Loja</Button>
               </div>
-              <div className="space-y-1.5">
-                <Label>Nome da Loja</Label>
-                <Input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Loja Centro" />
-              </div>
-              <Button onClick={handleSave} className="w-full">Criar Loja</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>

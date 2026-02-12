@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, AlertTriangle } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
 import { validateOrError, auditoriaSchema } from '@/lib/validation';
+import { exportToCSV } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
@@ -64,6 +65,26 @@ export default function Auditoria() {
     fetchAuditorias();
   };
 
+  const handleExport = () => {
+    const data = auditorias.map(a => ({
+      data: new Date(a.created_at).toLocaleDateString('pt-BR'),
+      loja: lojas.find(l => l.id === a.loja_id)?.nome ?? '-',
+      tipo: a.tipo,
+      descricao: a.descricao ?? '',
+      valor: a.valor ? Number(a.valor).toFixed(2) : '',
+      status: a.status,
+    }));
+    exportToCSV(data, 'auditorias', [
+      { key: 'data', label: 'Data' },
+      { key: 'loja', label: 'Loja' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'descricao', label: 'Descrição' },
+      { key: 'valor', label: 'Valor' },
+      { key: 'status', label: 'Status' },
+    ]);
+    toast({ title: 'Exportado!' });
+  };
+
   const statusBadge = (s: string) => {
     if (s === 'RESOLVIDA') return <Badge className="bg-success text-success-foreground">Resolvida</Badge>;
     if (s === 'EM_ANALISE') return <Badge className="bg-warning text-warning-foreground">Em Análise</Badge>;
@@ -74,34 +95,39 @@ export default function Auditoria() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Auditoria</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Ocorrência</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nova Ocorrência</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Loja</Label>
-                <Select value={form.loja_id} onValueChange={v => setForm(p => ({ ...p, loja_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}</SelectContent>
-                </Select>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} className="gap-2" disabled={auditorias.length === 0}>
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Ocorrência</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Nova Ocorrência</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Loja</Label>
+                  <Select value={form.loja_id} onValueChange={v => setForm(p => ({ ...p, loja_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tipo</Label>
+                  <Input value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Falta de caixa" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Descrição</Label>
+                  <Textarea value={form.descricao} onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Valor (opcional)</Label>
+                  <Input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} />
+                </div>
+                <Button onClick={handleSave} className="w-full">Registrar</Button>
               </div>
-              <div className="space-y-1.5">
-                <Label>Tipo</Label>
-                <Input value={form.tipo} onChange={e => setForm(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Falta de caixa" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Descrição</Label>
-                <Textarea value={form.descricao} onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Valor (opcional)</Label>
-                <Input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} />
-              </div>
-              <Button onClick={handleSave} className="w-full">Registrar</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
