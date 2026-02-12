@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Download } from 'lucide-react';
 import { validateOrError, usuarioSchema } from '@/lib/validation';
-import { exportToCSV } from '@/lib/csv';
+import { exportToCSV, exportToExcel } from '@/lib/csv';
 
 export default function AdminUsuarios() {
   const { toast } = useToast();
@@ -74,13 +74,33 @@ export default function AdminUsuarios() {
       perfil: u.roles.join(', '),
       status: u.ativo ? 'Ativo' : 'Inativo',
     }));
-    exportToCSV(data, 'usuarios', [
+    const cols = [
       { key: 'nome', label: 'Nome' },
       { key: 'email', label: 'Email' },
       { key: 'empresa', label: 'Empresa' },
       { key: 'perfil', label: 'Perfil' },
       { key: 'status', label: 'Status' },
-    ]);
+    ];
+    exportToCSV(data, 'usuarios', cols);
+    toast({ title: 'Exportado!' });
+  };
+
+  const handleExportExcel = () => {
+    const data = usuarios.map(u => ({
+      nome: u.nome,
+      email: u.email,
+      empresa: empresas.find(e => e.id === u.empresa_id)?.nome ?? '-',
+      perfil: u.roles.join(', '),
+      status: u.ativo ? 'Ativo' : 'Inativo',
+    }));
+    const cols = [
+      { key: 'nome', label: 'Nome' },
+      { key: 'email', label: 'Email' },
+      { key: 'empresa', label: 'Empresa' },
+      { key: 'perfil', label: 'Perfil' },
+      { key: 'status', label: 'Status' },
+    ];
+    exportToExcel(data, 'usuarios', cols);
     toast({ title: 'Exportado!' });
   };
 
@@ -90,7 +110,10 @@ export default function AdminUsuarios() {
         <h1 className="font-display text-2xl font-bold">Usuários</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2" disabled={usuarios.length === 0}>
-            <Download className="h-4 w-4" /> Exportar CSV
+            <Download className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} className="gap-2" disabled={usuarios.length === 0}>
+            <Download className="h-4 w-4" /> Excel
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Novo Usuário</Button></DialogTrigger>

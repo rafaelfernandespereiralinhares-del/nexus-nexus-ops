@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Download } from 'lucide-react';
 import { validateOrError, auditoriaSchema } from '@/lib/validation';
-import { exportToCSV } from '@/lib/csv';
+import { exportToCSV, exportToExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
@@ -74,14 +74,36 @@ export default function Auditoria() {
       valor: a.valor ? Number(a.valor).toFixed(2) : '',
       status: a.status,
     }));
-    exportToCSV(data, 'auditorias', [
+    const cols = [
       { key: 'data', label: 'Data' },
       { key: 'loja', label: 'Loja' },
       { key: 'tipo', label: 'Tipo' },
       { key: 'descricao', label: 'Descrição' },
       { key: 'valor', label: 'Valor' },
       { key: 'status', label: 'Status' },
-    ]);
+    ];
+    exportToCSV(data, 'auditorias', cols);
+    toast({ title: 'Exportado!' });
+  };
+
+  const handleExportExcel = () => {
+    const csvData = auditorias.map(a => ({
+      data: new Date(a.created_at).toLocaleDateString('pt-BR'),
+      loja: lojas.find(l => l.id === a.loja_id)?.nome ?? '-',
+      tipo: a.tipo,
+      descricao: a.descricao ?? '',
+      valor: a.valor ? Number(a.valor).toFixed(2) : '',
+      status: a.status,
+    }));
+    const cols = [
+      { key: 'data', label: 'Data' },
+      { key: 'loja', label: 'Loja' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'descricao', label: 'Descrição' },
+      { key: 'valor', label: 'Valor' },
+      { key: 'status', label: 'Status' },
+    ];
+    exportToExcel(csvData, 'auditorias', cols);
     toast({ title: 'Exportado!' });
   };
 
@@ -97,7 +119,10 @@ export default function Auditoria() {
         <h1 className="font-display text-2xl font-bold">Auditoria</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2" disabled={auditorias.length === 0}>
-            <Download className="h-4 w-4" /> Exportar CSV
+            <Download className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} className="gap-2" disabled={auditorias.length === 0}>
+            <Download className="h-4 w-4" /> Excel
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Ocorrência</Button></DialogTrigger>

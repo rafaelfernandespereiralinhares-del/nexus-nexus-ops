@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Download } from 'lucide-react';
 import { validateOrError, empresaSchema } from '@/lib/validation';
-import { exportToCSV } from '@/lib/csv';
+import { exportToCSV, exportToExcel } from '@/lib/csv';
 
 export default function AdminEmpresas() {
   const { toast } = useToast();
@@ -60,12 +60,30 @@ export default function AdminEmpresas() {
       status: e.ativo ? 'Ativa' : 'Inativa',
       criada_em: new Date(e.created_at).toLocaleDateString('pt-BR'),
     }));
-    exportToCSV(data, 'empresas', [
+    const cols = [
       { key: 'nome', label: 'Nome' },
       { key: 'plano', label: 'Plano' },
       { key: 'status', label: 'Status' },
       { key: 'criada_em', label: 'Criada em' },
-    ]);
+    ];
+    exportToCSV(data, 'empresas', cols);
+    toast({ title: 'Exportado!' });
+  };
+
+  const handleExportExcel = () => {
+    const data = empresas.map(e => ({
+      nome: e.nome,
+      plano: planos.find(p => p.id === e.plano_id)?.nome ?? '-',
+      status: e.ativo ? 'Ativa' : 'Inativa',
+      criada_em: new Date(e.created_at).toLocaleDateString('pt-BR'),
+    }));
+    const cols = [
+      { key: 'nome', label: 'Nome' },
+      { key: 'plano', label: 'Plano' },
+      { key: 'status', label: 'Status' },
+      { key: 'criada_em', label: 'Criada em' },
+    ];
+    exportToExcel(data, 'empresas', cols);
     toast({ title: 'Exportado!' });
   };
 
@@ -75,7 +93,10 @@ export default function AdminEmpresas() {
         <h1 className="font-display text-2xl font-bold">Empresas</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2" disabled={empresas.length === 0}>
-            <Download className="h-4 w-4" /> Exportar CSV
+            <Download className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} className="gap-2" disabled={empresas.length === 0}>
+            <Download className="h-4 w-4" /> Excel
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Empresa</Button></DialogTrigger>
