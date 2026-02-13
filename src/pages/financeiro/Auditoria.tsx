@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,15 +11,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, Upload } from 'lucide-react';
 import { validateOrError, auditoriaSchema } from '@/lib/validation';
-import { exportToCSV, exportToExcel } from '@/lib/csv';
+import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
 export default function Auditoria() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [auditorias, setAuditorias] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -107,6 +108,44 @@ export default function Auditoria() {
     toast({ title: 'Exportado!' });
   };
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.empresa_id) return;
+    let rows: Record<string, string>[];
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      const buffer = await file.arrayBuffer();
+      ({ rows } = parseExcel(buffer));
+    } else {
+      const text = await file.text();
+      ({ rows } = parseCSV(text));
+    }
+    if (rows.length === 0) {
+      toast({ title: 'Erro', description: 'Arquivo vazio ou inválido', variant: 'destructive' });
+      return;
+    }
+    let imported = 0;
+    for (const row of rows) {
+      const lojaNome = row['Loja'] || row['loja'];
+      const tipo = row['Tipo'] || row['tipo'];
+      const descricao = row['Descrição'] || row['descricao'] || row['Descricao'] || '';
+      const valorStr = row['Valor'] || row['valor'] || '';
+      const valor = valorStr ? parseFloat(valorStr.replace(',', '.')) : null;
+      const loja = lojas.find(l => l.nome.toLowerCase() === lojaNome?.toLowerCase());
+      if (!tipo || !loja) continue;
+      const { error } = await supabase.from('auditorias').insert({
+        empresa_id: profile.empresa_id,
+        loja_id: loja.id,
+        tipo,
+        descricao: descricao || null,
+        valor: valor && !isNaN(valor) ? valor : null,
+      });
+      if (!error) imported++;
+    }
+    toast({ title: `${imported} ocorrências importadas de ${rows.length}` });
+    if (fileRef.current) fileRef.current.value = '';
+    fetchAuditorias();
+  };
+
   const statusBadge = (s: string) => {
     if (s === 'RESOLVIDA') return <Badge className="bg-success text-success-foreground">Resolvida</Badge>;
     if (s === 'EM_ANALISE') return <Badge className="bg-warning text-warning-foreground">Em Análise</Badge>;
@@ -124,6 +163,10 @@ export default function Auditoria() {
           <Button variant="outline" onClick={handleExportExcel} className="gap-2" disabled={auditorias.length === 0}>
             <Download className="h-4 w-4" /> Excel
           </Button>
+          <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
+            <Upload className="h-4 w-4" /> Importar
+          </Button>
+          <input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleImport} className="hidden" />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Ocorrência</Button></DialogTrigger>
             <DialogContent>
