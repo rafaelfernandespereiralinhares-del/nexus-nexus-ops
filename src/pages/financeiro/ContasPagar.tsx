@@ -17,6 +17,7 @@ import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 interface Loja { id: string; nome: string; }
 
 export default function ContasPagar() {
+  const isAdmin = useAuth().hasRole('ADMIN');
   const { profile } = useAuth();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -242,9 +243,18 @@ export default function ContasPagar() {
                   <TableCell>{new Date(c.vencimento).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>{statusBadge(c.status)}</TableCell>
                   <TableCell>
-                    {c.status !== 'PAGO' && (
+                    {isAdmin ? (
+                      <Select value={c.status} onValueChange={v => updateStatus(c.id, v)}>
+                        <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ABERTO">Aberto</SelectItem>
+                          <SelectItem value="PAGO">Pago</SelectItem>
+                          <SelectItem value="ATRASADO">Atrasado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : c.status !== 'PAGO' ? (
                       <Button variant="ghost" size="sm" onClick={() => updateStatus(c.id, 'PAGO')}>Marcar Pago</Button>
-                    )}
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}
