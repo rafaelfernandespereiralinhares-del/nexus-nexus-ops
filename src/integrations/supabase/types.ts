@@ -283,6 +283,66 @@ export type Database = {
           },
         ]
       }
+      dre_historico: {
+        Row: {
+          ano: number
+          categoria: string
+          created_at: string
+          empresa_id: string
+          id: string
+          loja_id: string | null
+          loja_nome: string
+          mes: number
+          percentual: number | null
+          subcategoria: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          ano: number
+          categoria: string
+          created_at?: string
+          empresa_id: string
+          id?: string
+          loja_id?: string | null
+          loja_nome: string
+          mes: number
+          percentual?: number | null
+          subcategoria: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          ano?: number
+          categoria?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          loja_id?: string | null
+          loja_nome?: string
+          mes?: number
+          percentual?: number | null
+          subcategoria?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dre_historico_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_historico_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           ativo: boolean
