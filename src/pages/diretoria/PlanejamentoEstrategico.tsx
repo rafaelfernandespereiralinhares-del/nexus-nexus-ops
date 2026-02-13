@@ -39,6 +39,7 @@ const SUB_LABELS: Record<string, string> = {
   ALUGUEL: 'Aluguel',
   SALARIOS_EQUIPE_MANTIQUEIRA: 'Salários - Equipe Mantiqueira',
   SALARIOS_EQUIPE_REDE: 'Salários - Equipe Rede',
+  SALARIOS: 'Salários',
   SISTEMA: 'Sistema',
   PASSAGEM: 'Passagem',
   CONTABILIDADE: 'Contabilidade',
@@ -49,6 +50,7 @@ const SUB_LABELS: Record<string, string> = {
   EMBALAGENS: 'Embalagens',
   DESPESAS_MOTO: 'Despesas da Moto',
   MARKETING: 'Marketing',
+  TRAFEGO_GOOGLE_ADS: 'Tráfego Google Ads',
   LUCRO_LIQUIDO: 'Lucro Líquido',
 };
 
