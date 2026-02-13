@@ -65,6 +65,59 @@ export type Database = {
           },
         ]
       }
+      campanhas: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          empresa_id: string
+          id: string
+          meta_quantidade: number
+          nome: string
+          produto_servico: string
+          progresso: number
+          tipo: Database["public"]["Enums"]["campanha_tipo"]
+          updated_at: string
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          empresa_id: string
+          id?: string
+          meta_quantidade?: number
+          nome: string
+          produto_servico?: string
+          progresso?: number
+          tipo?: Database["public"]["Enums"]["campanha_tipo"]
+          updated_at?: string
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          empresa_id?: string
+          id?: string
+          meta_quantidade?: number
+          nome?: string
+          produto_servico?: string
+          progresso?: number
+          tipo?: Database["public"]["Enums"]["campanha_tipo"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanhas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conciliacoes: {
         Row: {
           created_at: string
@@ -346,6 +399,69 @@ export type Database = {
           },
         ]
       }
+      funcionarios: {
+        Row: {
+          admissao: string
+          ajuda_custo: number
+          ativo: boolean
+          cargo: string
+          created_at: string
+          empresa_id: string
+          id: string
+          loja_id: string
+          nome: string
+          passagem: number
+          salario: number
+          updated_at: string
+          vinculo: Database["public"]["Enums"]["vinculo_tipo"]
+        }
+        Insert: {
+          admissao?: string
+          ajuda_custo?: number
+          ativo?: boolean
+          cargo?: string
+          created_at?: string
+          empresa_id: string
+          id?: string
+          loja_id: string
+          nome: string
+          passagem?: number
+          salario?: number
+          updated_at?: string
+          vinculo?: Database["public"]["Enums"]["vinculo_tipo"]
+        }
+        Update: {
+          admissao?: string
+          ajuda_custo?: number
+          ativo?: boolean
+          cargo?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          loja_id?: string
+          nome?: string
+          passagem?: number
+          salario?: number
+          updated_at?: string
+          vinculo?: Database["public"]["Enums"]["vinculo_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionarios_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funcionarios_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logs: {
         Row: {
           acao: string
@@ -430,7 +546,10 @@ export type Database = {
           loja_id: string
           mes: string
           meta_diaria: number
+          meta_lucro: number
           meta_mensal: number
+          realizado_faturamento: number
+          realizado_lucro: number
           updated_at: string
         }
         Insert: {
@@ -440,7 +559,10 @@ export type Database = {
           loja_id: string
           mes: string
           meta_diaria?: number
+          meta_lucro?: number
           meta_mensal?: number
+          realizado_faturamento?: number
+          realizado_lucro?: number
           updated_at?: string
         }
         Update: {
@@ -450,7 +572,10 @@ export type Database = {
           loja_id?: string
           mes?: string
           meta_diaria?: number
+          meta_lucro?: number
           meta_mensal?: number
+          realizado_faturamento?: number
+          realizado_lucro?: number
           updated_at?: string
         }
         Relationships: [
@@ -580,6 +705,54 @@ export type Database = {
           },
         ]
       }
+      servicos_funcionario: {
+        Row: {
+          comissao: number
+          created_at: string
+          data: string
+          descricao: string
+          empresa_id: string
+          funcionario_id: string
+          id: string
+          valor: number
+        }
+        Insert: {
+          comissao?: number
+          created_at?: string
+          data?: string
+          descricao?: string
+          empresa_id: string
+          funcionario_id: string
+          id?: string
+          valor?: number
+        }
+        Update: {
+          comissao?: number
+          created_at?: string
+          data?: string
+          descricao?: string
+          empresa_id?: string
+          funcionario_id?: string
+          id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicos_funcionario_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicos_funcionario_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -624,6 +797,7 @@ export type Database = {
     Enums: {
       app_role: "ADMIN" | "DIRETORIA" | "FINANCEIRO" | "LOJA"
       auditoria_status: "ABERTA" | "EM_ANALISE" | "RESOLVIDA"
+      campanha_tipo: "DIARIA" | "SEMANAL" | "MENSAL"
       conciliacao_status: "OK" | "DIVERGENCIA" | "ANALISE"
       conta_pagar_status: "ABERTO" | "PAGO" | "ATRASADO"
       conta_receber_status: "ABERTO" | "PAGO" | "ATRASADO" | "NEGOCIADO"
@@ -634,6 +808,7 @@ export type Database = {
         | "CONCILIADO_OK"
         | "CONCILIADO_DIVERGENCIA"
         | "REABERTO"
+      vinculo_tipo: "CLT" | "MEI" | "PJ" | "ESTAGIARIO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -763,6 +938,7 @@ export const Constants = {
     Enums: {
       app_role: ["ADMIN", "DIRETORIA", "FINANCEIRO", "LOJA"],
       auditoria_status: ["ABERTA", "EM_ANALISE", "RESOLVIDA"],
+      campanha_tipo: ["DIARIA", "SEMANAL", "MENSAL"],
       conciliacao_status: ["OK", "DIVERGENCIA", "ANALISE"],
       conta_pagar_status: ["ABERTO", "PAGO", "ATRASADO"],
       conta_receber_status: ["ABERTO", "PAGO", "ATRASADO", "NEGOCIADO"],
@@ -774,6 +950,7 @@ export const Constants = {
         "CONCILIADO_DIVERGENCIA",
         "REABERTO",
       ],
+      vinculo_tipo: ["CLT", "MEI", "PJ", "ESTAGIARIO"],
     },
   },
 } as const

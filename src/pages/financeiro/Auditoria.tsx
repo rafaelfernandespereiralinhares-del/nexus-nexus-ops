@@ -152,10 +152,17 @@ export default function Auditoria() {
     return <Badge className="bg-danger text-danger-foreground">Aberta</Badge>;
   };
 
+  const pendentes = auditorias.filter(a => a.status === 'ABERTA').length;
+  const emAnalise = auditorias.filter(a => a.status === 'EM_ANALISE').length;
+  const resolvidos = auditorias.filter(a => a.status === 'RESOLVIDA').length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold">Auditoria</h1>
+        <div>
+          <h1 className="font-display text-2xl font-bold">Auditoria</h1>
+          <p className="text-sm text-muted-foreground">Registro e acompanhamento de ocorrências</p>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2" disabled={auditorias.length === 0}>
             <Download className="h-4 w-4" /> CSV
@@ -196,6 +203,28 @@ export default function Auditoria() {
             </DialogContent>
           </Dialog>
         </div>
+      </div>
+
+      {/* Status Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="flex flex-col items-center pt-6">
+            <p className="text-3xl font-bold text-destructive">{pendentes}</p>
+            <p className="text-sm text-muted-foreground">Pendentes</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col items-center pt-6">
+            <p className="text-3xl font-bold text-warning">{emAnalise}</p>
+            <p className="text-sm text-muted-foreground">Em Análise</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col items-center pt-6">
+            <p className="text-3xl font-bold text-success">{resolvidos}</p>
+            <p className="text-sm text-muted-foreground">Resolvidos</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
