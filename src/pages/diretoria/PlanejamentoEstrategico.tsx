@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Download, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { exportToExcel } from '@/lib/csv';
@@ -58,33 +57,64 @@ const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 interface DreRow {
   categoria: string;
   subcategoria: string;
-  valores: number[]; // 12 months
+  valores: number[];
   percentuais: number[];
   total: number;
 }
 
+function buildDreRows(data: any[]): DreRow[] {
+  const grouped = new Map<string, Map<string, { valores: number[]; percentuais: number[] }>>();
+  for (const row of data) {
+    if (!grouped.has(row.categoria)) grouped.set(row.categoria, new Map());
+    const catMap = grouped.get(row.categoria)!;
+    if (!catMap.has(row.subcategoria)) {
+      catMap.set(row.subcategoria, { valores: Array(12).fill(0), percentuais: Array(12).fill(0) });
+    }
+    const entry = catMap.get(row.subcategoria)!;
+    entry.valores[row.mes - 1] = Number(row.valor);
+    entry.percentuais[row.mes - 1] = Number(row.percentual);
+  }
+  const result: DreRow[] = [];
+  for (const cat of CATEGORIA_ORDER) {
+    const catMap = grouped.get(cat);
+    if (!catMap) continue;
+    for (const [sub, entry] of catMap) {
+      result.push({
+        categoria: cat,
+        subcategoria: sub,
+        valores: entry.valores,
+        percentuais: entry.percentuais,
+        total: entry.valores.reduce((a, b) => a + b, 0),
+      });
+    }
+  }
+  return result;
+}
+
 export default function PlanejamentoEstrategico() {
-  const { profile } = useAuth();
   const { toast } = useToast();
   const [data, setData] = useState<any[]>([]);
+  const [compareData, setCompareData] = useState<any[]>([]);
   const [anos, setAnos] = useState<number[]>([]);
   const [lojas, setLojas] = useState<string[]>([]);
   const [anoSel, setAnoSel] = useState<string>('');
+  const [anoCompare, setAnoCompare] = useState<string>('');
   const [lojaSel, setLojaSel] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchFilters();
-  }, []);
+  useEffect(() => { fetchFilters(); }, []);
 
   useEffect(() => {
     if (anoSel && lojaSel) fetchDre();
   }, [anoSel, lojaSel]);
 
+  useEffect(() => {
+    if (anoCompare && lojaSel) fetchCompareDre();
+    else setCompareData([]);
+  }, [anoCompare, lojaSel]);
+
   const fetchFilters = async () => {
-    const { data: rows } = await supabase
-      .from('dre_historico')
-      .select('ano, loja_nome');
+    const { data: rows } = await supabase.from('dre_historico').select('ano, loja_nome');
     if (rows) {
       const uniqueAnos = [...new Set(rows.map(r => r.ano))].sort((a, b) => b - a);
       const uniqueLojas = [...new Set(rows.map(r => r.loja_nome))].sort();
@@ -97,50 +127,21 @@ export default function PlanejamentoEstrategico() {
   };
 
   const fetchDre = async () => {
-    const { data: rows } = await supabase
-      .from('dre_historico')
-      .select('*')
-      .eq('ano', Number(anoSel))
-      .eq('loja_nome', lojaSel)
-      .order('mes');
+    const { data: rows } = await supabase.from('dre_historico').select('*')
+      .eq('ano', Number(anoSel)).eq('loja_nome', lojaSel).order('mes');
     if (rows) setData(rows);
   };
 
-  // Build DRE table structure
-  const buildDreRows = (): DreRow[] => {
-    const grouped = new Map<string, Map<string, { valores: number[]; percentuais: number[] }>>();
-
-    for (const row of data) {
-      if (!grouped.has(row.categoria)) grouped.set(row.categoria, new Map());
-      const catMap = grouped.get(row.categoria)!;
-      if (!catMap.has(row.subcategoria)) {
-        catMap.set(row.subcategoria, { valores: Array(12).fill(0), percentuais: Array(12).fill(0) });
-      }
-      const entry = catMap.get(row.subcategoria)!;
-      entry.valores[row.mes - 1] = Number(row.valor);
-      entry.percentuais[row.mes - 1] = Number(row.percentual);
-    }
-
-    const result: DreRow[] = [];
-    for (const cat of CATEGORIA_ORDER) {
-      const catMap = grouped.get(cat);
-      if (!catMap) continue;
-      for (const [sub, entry] of catMap) {
-        result.push({
-          categoria: cat,
-          subcategoria: sub,
-          valores: entry.valores,
-          percentuais: entry.percentuais,
-          total: entry.valores.reduce((a, b) => a + b, 0),
-        });
-      }
-    }
-    return result;
+  const fetchCompareDre = async () => {
+    const { data: rows } = await supabase.from('dre_historico').select('*')
+      .eq('ano', Number(anoCompare)).eq('loja_nome', lojaSel).order('mes');
+    if (rows) setCompareData(rows);
   };
 
-  const dreRows = buildDreRows();
+  const dreRows = buildDreRows(data);
+  const compareDreRows = buildDreRows(compareData);
 
-  // Chart data for revenue vs expenses vs profit
+  // Chart data
   const chartData = MESES.map((m, i) => {
     const receita = dreRows.filter(r => r.categoria === 'RECEITAS').reduce((s, r) => s + r.valores[i], 0);
     const despFixas = dreRows.filter(r => r.categoria === 'DESPESAS_FIXAS').reduce((s, r) => s + r.valores[i], 0);
@@ -149,11 +150,26 @@ export default function PlanejamentoEstrategico() {
     return { mes: m, receita, despesas: despFixas + despVar, lucro };
   });
 
+  // YoY chart data
+  const yoyData = anoCompare ? MESES.map((m, i) => {
+    const receitaAtual = dreRows.filter(r => r.categoria === 'RECEITAS').reduce((s, r) => s + r.valores[i], 0);
+    const lucroAtual = dreRows.filter(r => r.subcategoria === 'LUCRO_LIQUIDO').reduce((s, r) => s + r.valores[i], 0);
+    const receitaAnterior = compareDreRows.filter(r => r.categoria === 'RECEITAS').reduce((s, r) => s + r.valores[i], 0);
+    const lucroAnterior = compareDreRows.filter(r => r.subcategoria === 'LUCRO_LIQUIDO').reduce((s, r) => s + r.valores[i], 0);
+    return { mes: m, [`Receita ${anoSel}`]: receitaAtual, [`Receita ${anoCompare}`]: receitaAnterior, [`Lucro ${anoSel}`]: lucroAtual, [`Lucro ${anoCompare}`]: lucroAnterior };
+  }) : [];
+
   // KPIs
   const totalReceita = dreRows.filter(r => r.categoria === 'RECEITAS').reduce((s, r) => s + r.total, 0);
   const totalLucro = dreRows.filter(r => r.subcategoria === 'LUCRO_LIQUIDO').reduce((s, r) => s + r.total, 0);
   const totalDespFixas = dreRows.filter(r => r.categoria === 'DESPESAS_FIXAS').reduce((s, r) => s + r.total, 0);
   const margemLucro = totalReceita > 0 ? (totalLucro / totalReceita) * 100 : 0;
+
+  // YoY KPIs
+  const totalReceitaCompare = compareDreRows.filter(r => r.categoria === 'RECEITAS').reduce((s, r) => s + r.total, 0);
+  const totalLucroCompare = compareDreRows.filter(r => r.subcategoria === 'LUCRO_LIQUIDO').reduce((s, r) => s + r.total, 0);
+  const varReceita = totalReceitaCompare > 0 ? ((totalReceita - totalReceitaCompare) / totalReceitaCompare) * 100 : 0;
+  const varLucro = totalLucroCompare !== 0 ? ((totalLucro - totalLucroCompare) / Math.abs(totalLucroCompare)) * 100 : 0;
 
   const handleExport = () => {
     const exportData = dreRows.map(r => {
@@ -187,7 +203,7 @@ export default function PlanejamentoEstrategico() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-2xl font-bold">Planejamento Estratégico — DRE Histórico</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={lojaSel} onValueChange={setLojaSel}>
             <SelectTrigger className="w-48"><SelectValue placeholder="Loja" /></SelectTrigger>
             <SelectContent>{lojas.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
@@ -195,6 +211,13 @@ export default function PlanejamentoEstrategico() {
           <Select value={anoSel} onValueChange={setAnoSel}>
             <SelectTrigger className="w-28"><SelectValue placeholder="Ano" /></SelectTrigger>
             <SelectContent>{anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={anoCompare} onValueChange={setAnoCompare}>
+            <SelectTrigger className="w-36"><SelectValue placeholder="Comparar com..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem comparação</SelectItem>
+              {anos.filter(a => String(a) !== anoSel).map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
+            </SelectContent>
           </Select>
           <Button variant="outline" onClick={handleExport} disabled={dreRows.length === 0} className="gap-2">
             <Download className="h-4 w-4" /> Excel
@@ -206,14 +229,24 @@ export default function PlanejamentoEstrategico() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Receita Total Anual</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-primary">{fmt(totalReceita)}</p></CardContent>
+          <CardContent>
+            <p className="text-2xl font-bold text-primary">{fmt(totalReceita)}</p>
+            {anoCompare && anoCompare !== 'none' && totalReceitaCompare > 0 && (
+              <p className={`text-xs mt-1 ${varReceita >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {varReceita >= 0 ? '▲' : '▼'} {Math.abs(varReceita).toFixed(1)}% vs {anoCompare}
+              </p>
+            )}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Lucro Líquido Anual</CardTitle></CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${totalLucro >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {fmt(totalLucro)}
-            </p>
+            <p className={`text-2xl font-bold ${totalLucro >= 0 ? 'text-success' : 'text-destructive'}`}>{fmt(totalLucro)}</p>
+            {anoCompare && anoCompare !== 'none' && totalLucroCompare !== 0 && (
+              <p className={`text-xs mt-1 ${varLucro >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {varLucro >= 0 ? '▲' : '▼'} {Math.abs(varLucro).toFixed(1)}% vs {anoCompare}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -239,7 +272,29 @@ export default function PlanejamentoEstrategico() {
         </Card>
       </div>
 
-      {/* Chart */}
+      {/* YoY Comparison Chart */}
+      {anoCompare && anoCompare !== 'none' && yoyData.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Comparação Ano a Ano — {anoSel} vs {anoCompare}</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={yoyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="mes" />
+                <YAxis tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: number) => fmt(v)} />
+                <Legend />
+                <Bar dataKey={`Receita ${anoSel}`} fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey={`Receita ${anoCompare}`} fill="hsl(var(--primary) / 0.4)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey={`Lucro ${anoSel}`} fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey={`Lucro ${anoCompare}`} fill="hsl(var(--success) / 0.4)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Monthly Evolution Chart */}
       <Card>
         <CardHeader><CardTitle>Evolução Mensal — Receita × Despesas × Lucro</CardTitle></CardHeader>
         <CardContent>
@@ -278,28 +333,26 @@ export default function PlanejamentoEstrategico() {
                   lastCat = row.categoria;
                   const isResult = row.categoria === 'RESULTADO';
                   return (
-                    <>
-                      {showHeader && (
-                        <TableRow key={`header-${row.categoria}`} className="bg-muted/50">
-                          <TableCell colSpan={14} className="font-bold text-sm py-2">
-                            {CATEGORIA_LABELS[row.categoria] || row.categoria}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      <TableRow key={idx} className={isResult ? 'font-bold bg-muted/30' : ''}>
-                        <TableCell className="pl-6 sticky left-0 bg-background z-10">
-                          {SUB_LABELS[row.subcategoria] || row.subcategoria}
-                        </TableCell>
-                        {row.valores.map((v, i) => (
-                          <TableCell key={i} className={`text-right tabular-nums ${v < 0 ? 'text-destructive' : ''}`}>
-                            {fmt(v)}
-                          </TableCell>
-                        ))}
-                        <TableCell className={`text-right font-bold tabular-nums ${row.total < 0 ? 'text-destructive' : ''}`}>
-                          {fmt(row.total)}
+                    <>{showHeader && (
+                      <TableRow key={`header-${row.categoria}`} className="bg-muted/50">
+                        <TableCell colSpan={14} className="font-bold text-sm py-2">
+                          {CATEGORIA_LABELS[row.categoria] || row.categoria}
                         </TableCell>
                       </TableRow>
-                    </>
+                    )}
+                    <TableRow key={idx} className={isResult ? 'font-bold bg-muted/30' : ''}>
+                      <TableCell className="pl-6 sticky left-0 bg-background z-10">
+                        {SUB_LABELS[row.subcategoria] || row.subcategoria}
+                      </TableCell>
+                      {row.valores.map((v, i) => (
+                        <TableCell key={i} className={`text-right tabular-nums ${v < 0 ? 'text-destructive' : ''}`}>
+                          {fmt(v)}
+                        </TableCell>
+                      ))}
+                      <TableCell className={`text-right font-bold tabular-nums ${row.total < 0 ? 'text-destructive' : ''}`}>
+                        {fmt(row.total)}
+                      </TableCell>
+                    </TableRow></>
                   );
                 });
               })()}
