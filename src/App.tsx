@@ -29,6 +29,7 @@ import Auditoria from "./pages/financeiro/Auditoria";
 
 import DiretoriaDashboard from "./pages/diretoria/DiretoriaDashboard";
 import RelatorioIA from "./pages/diretoria/RelatorioIA";
+import PlanejamentoEstrategico from "./pages/diretoria/PlanejamentoEstrategico";
 
 import Funcionarios from "./pages/rh/Funcionarios";
 import CampanhasVendas from "./pages/rh/CampanhasVendas";
@@ -78,6 +79,7 @@ const App = () => (
             {/* Diretoria */}
             <Route element={<ProtectedRoute allowedRoles={['DIRETORIA']}><AppLayout /></ProtectedRoute>}>
               <Route path="/diretoria/dashboard" element={<DiretoriaDashboard />} />
+              <Route path="/diretoria/planejamento" element={<PlanejamentoEstrategico />} />
               <Route path="/diretoria/relatorio-ia" element={<RelatorioIA />} />
             </Route>
 
