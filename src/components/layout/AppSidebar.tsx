@@ -27,6 +27,8 @@ export default function AppSidebar() {
       { label: 'Empresas', icon: Building2, path: '/admin/empresas' },
       { label: 'Lojas', icon: Store, path: '/admin/lojas' },
       { label: 'Usuários', icon: Users, path: '/admin/usuarios' },
+      { label: 'Dashboard Loja', icon: LayoutDashboard, path: '/loja/dashboard' },
+      { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
