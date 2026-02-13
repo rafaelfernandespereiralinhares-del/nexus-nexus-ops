@@ -121,21 +121,55 @@ export default function PlanejamentoEstrategico() {
       setAnos(uniqueAnos);
       setLojas(uniqueLojas);
       if (uniqueAnos.length) setAnoSel(String(uniqueAnos[0]));
-      if (uniqueLojas.length) setLojaSel(uniqueLojas[0]);
+      setLojaSel('__TODAS__');
     }
     setLoading(false);
   };
 
   const fetchDre = async () => {
-    const { data: rows } = await supabase.from('dre_historico').select('*')
-      .eq('ano', Number(anoSel)).eq('loja_nome', lojaSel).order('mes');
-    if (rows) setData(rows);
+    let query = supabase.from('dre_historico').select('*').eq('ano', Number(anoSel)).order('mes');
+    if (lojaSel !== '__TODAS__') query = query.eq('loja_nome', lojaSel);
+    const { data: rows } = await query;
+    if (rows) {
+      if (lojaSel === '__TODAS__') {
+        // Consolidate all stores by summing values per categoria/subcategoria/mes
+        const map = new Map<string, any>();
+        for (const row of rows) {
+          const key = `${row.categoria}_${row.subcategoria}_${row.mes}`;
+          if (!map.has(key)) {
+            map.set(key, { ...row, valor: Number(row.valor), percentual: Number(row.percentual), loja_nome: 'Todas as Lojas' });
+          } else {
+            const existing = map.get(key)!;
+            existing.valor += Number(row.valor);
+          }
+        }
+        setData(Array.from(map.values()));
+      } else {
+        setData(rows);
+      }
+    }
   };
 
   const fetchCompareDre = async () => {
-    const { data: rows } = await supabase.from('dre_historico').select('*')
-      .eq('ano', Number(anoCompare)).eq('loja_nome', lojaSel).order('mes');
-    if (rows) setCompareData(rows);
+    let query = supabase.from('dre_historico').select('*').eq('ano', Number(anoCompare)).order('mes');
+    if (lojaSel !== '__TODAS__') query = query.eq('loja_nome', lojaSel);
+    const { data: rows } = await query;
+    if (rows) {
+      if (lojaSel === '__TODAS__') {
+        const map = new Map<string, any>();
+        for (const row of rows) {
+          const key = `${row.categoria}_${row.subcategoria}_${row.mes}`;
+          if (!map.has(key)) {
+            map.set(key, { ...row, valor: Number(row.valor), percentual: Number(row.percentual) });
+          } else {
+            map.get(key)!.valor += Number(row.valor);
+          }
+        }
+        setCompareData(Array.from(map.values()));
+      } else {
+        setCompareData(rows);
+      }
+    }
   };
 
   const dreRows = buildDreRows(data);
@@ -206,7 +240,10 @@ export default function PlanejamentoEstrategico() {
         <div className="flex flex-wrap gap-2">
           <Select value={lojaSel} onValueChange={setLojaSel}>
             <SelectTrigger className="w-48"><SelectValue placeholder="Loja" /></SelectTrigger>
-            <SelectContent>{lojas.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+            <SelectContent>
+              <SelectItem value="__TODAS__">📊 Todas as Lojas</SelectItem>
+              {lojas.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectContent>
           </Select>
           <Select value={anoSel} onValueChange={setAnoSel}>
             <SelectTrigger className="w-28"><SelectValue placeholder="Ano" /></SelectTrigger>
@@ -315,7 +352,7 @@ export default function PlanejamentoEstrategico() {
 
       {/* DRE Table */}
       <Card>
-        <CardHeader><CardTitle>DRE Completo — {lojaSel} — {anoSel}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>DRE Completo — {lojaSel === '__TODAS__' ? 'Todas as Lojas' : lojaSel} — {anoSel}</CardTitle></CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
