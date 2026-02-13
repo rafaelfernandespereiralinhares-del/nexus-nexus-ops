@@ -31,17 +31,35 @@ export default function Metas() {
   const [filterAno, setFilterAno] = useState(String(now.getFullYear()));
   const [form, setForm] = useState({ loja_id: '', mes: now.toISOString().slice(0, 7), meta_mensal: '', meta_diaria: '', meta_lucro: '' });
 
+  const [fechamentos, setFechamentos] = useState<any[]>([]);
+
   useEffect(() => {
     if (!profile?.empresa_id) return;
     supabase.from('lojas').select('id, nome').eq('empresa_id', profile.empresa_id).eq('ativa', true)
       .then(({ data }) => { if (data) setLojas(data); });
     fetchMetas();
+    fetchFechamentos();
   }, [profile]);
 
   const fetchMetas = async () => {
     if (!profile?.empresa_id) return;
     const { data } = await supabase.from('metas').select('*').eq('empresa_id', profile.empresa_id).order('mes', { ascending: false });
     if (data) setMetas(data);
+  };
+
+  const fetchFechamentos = async () => {
+    if (!profile?.empresa_id) return;
+    const { data } = await supabase.from('fechamentos').select('loja_id, data, dinheiro, pix, cartao')
+      .eq('empresa_id', profile.empresa_id).is('deleted_at', null);
+    if (data) setFechamentos(data);
+  };
+
+  // Calculate realizado from fechamentos for a given loja/month
+  const getRealizadoForMeta = (lojaId: string, mes: string) => {
+    // mes is in format "2025-09"
+    return fechamentos
+      .filter(f => f.loja_id === lojaId && f.data?.startsWith(mes))
+      .reduce((sum, f) => sum + Number(f.dinheiro || 0) + Number(f.pix || 0) + Number(f.cartao || 0), 0);
   };
 
   const resetForm = () => {
@@ -204,7 +222,8 @@ export default function Metas() {
       <div className="space-y-4">
         {filtered.map((m, idx) => {
           const loja = lojas.find(l => l.id === m.loja_id);
-          const fatPct = m.meta_mensal > 0 ? Math.round((Number(m.realizado_faturamento || 0) / Number(m.meta_mensal)) * 100) : 0;
+          const realizadoFat = getRealizadoForMeta(m.loja_id, m.mes);
+          const fatPct = m.meta_mensal > 0 ? Math.round((realizadoFat / Number(m.meta_mensal)) * 100) : 0;
           const lucroPct = m.meta_lucro > 0 ? Math.round((Number(m.realizado_lucro || 0) / Number(m.meta_lucro)) * 100) : 0;
           return (
             <Card key={m.id}>
@@ -233,9 +252,9 @@ export default function Metas() {
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-primary">Faturamento</span>
-                      <span>{fmt(Number(m.realizado_faturamento || 0))} / {fmt(Number(m.meta_mensal))}</span>
+                      <span>{fmt(realizadoFat)} / {fmt(Number(m.meta_mensal))}</span>
                     </div>
-                    <Progress value={fatPct} className="h-2" />
+                    <Progress value={Math.min(fatPct, 100)} className="h-2" />
                   </div>
                   {Number(m.meta_lucro) > 0 && (
                     <div>
