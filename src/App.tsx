@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import SemPermissao from "./pages/SemPermissao";
 
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminEmpresas from "./pages/admin/AdminEmpresas";
 import AdminLojas from "./pages/admin/AdminLojas";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
@@ -48,6 +49,7 @@ const App = () => (
 
             {/* Admin */}
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']}><AppLayout /></ProtectedRoute>}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/empresas" element={<AdminEmpresas />} />
               <Route path="/admin/lojas" element={<AdminLojas />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
