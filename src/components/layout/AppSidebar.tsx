@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, DollarSign, Target, FileCheck, AlertTriangle, CreditCard, Receipt,
-  Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet
+  Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet, CalendarDays
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -32,6 +32,7 @@ export default function AppSidebar() {
       // Financeiro
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
+      { label: 'Metas Semanais', icon: CalendarDays, path: '/financeiro/metas-semanais' },
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
       { label: 'Contas a Receber', icon: Receipt, path: '/financeiro/contas-receber' },
       { label: 'Auditoria', icon: AlertTriangle, path: '/financeiro/auditoria' },
@@ -59,6 +60,7 @@ export default function AppSidebar() {
     navItems.push(
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
+      { label: 'Metas Semanais', icon: CalendarDays, path: '/financeiro/metas-semanais' },
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
       { label: 'Contas a Receber', icon: Receipt, path: '/financeiro/contas-receber' },
       { label: 'Auditoria', icon: AlertTriangle, path: '/financeiro/auditoria' },

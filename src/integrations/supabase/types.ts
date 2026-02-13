@@ -595,6 +595,72 @@ export type Database = {
           },
         ]
       }
+      metas_semanais: {
+        Row: {
+          contas_pagar_semana: number
+          created_at: string
+          custo_total_semana: number
+          empresa_id: string
+          folha_semanal: number
+          id: string
+          loja_id: string
+          margem_seguranca: number
+          meta_faturamento_semana: number
+          qtd_colaboradores: number
+          realizado_semana: number
+          semana_fim: string
+          semana_inicio: string
+          updated_at: string
+        }
+        Insert: {
+          contas_pagar_semana?: number
+          created_at?: string
+          custo_total_semana?: number
+          empresa_id: string
+          folha_semanal?: number
+          id?: string
+          loja_id: string
+          margem_seguranca?: number
+          meta_faturamento_semana?: number
+          qtd_colaboradores?: number
+          realizado_semana?: number
+          semana_fim: string
+          semana_inicio: string
+          updated_at?: string
+        }
+        Update: {
+          contas_pagar_semana?: number
+          created_at?: string
+          custo_total_semana?: number
+          empresa_id?: string
+          folha_semanal?: number
+          id?: string
+          loja_id?: string
+          margem_seguranca?: number
+          meta_faturamento_semana?: number
+          qtd_colaboradores?: number
+          realizado_semana?: number
+          semana_fim?: string
+          semana_inicio?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_semanais_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metas_semanais_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planos: {
         Row: {
           created_at: string

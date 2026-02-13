@@ -22,6 +22,7 @@ import CaixaDiario from "./pages/loja/CaixaDiario";
 
 import Conciliacao from "./pages/financeiro/Conciliacao";
 import Metas from "./pages/financeiro/Metas";
+import MetasSemanais from "./pages/financeiro/MetasSemanais";
 import ContasPagar from "./pages/financeiro/ContasPagar";
 import ContasReceber from "./pages/financeiro/ContasReceber";
 import Auditoria from "./pages/financeiro/Auditoria";
@@ -65,6 +66,7 @@ const App = () => (
             <Route element={<ProtectedRoute allowedRoles={['FINANCEIRO']}><AppLayout /></ProtectedRoute>}>
               <Route path="/financeiro/conciliacao" element={<Conciliacao />} />
               <Route path="/financeiro/metas" element={<Metas />} />
+              <Route path="/financeiro/metas-semanais" element={<MetasSemanais />} />
               <Route path="/financeiro/contas-pagar" element={<ContasPagar />} />
               <Route path="/financeiro/contas-receber" element={<ContasReceber />} />
               <Route path="/financeiro/auditoria" element={<Auditoria />} />
