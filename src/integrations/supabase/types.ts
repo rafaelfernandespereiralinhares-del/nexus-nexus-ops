@@ -283,6 +283,56 @@ export type Database = {
           },
         ]
       }
+      custos_casa: {
+        Row: {
+          categoria: string
+          created_at: string
+          data: string
+          data_pagamento: string | null
+          descricao: string
+          empresa_id: string
+          id: string
+          observacao: string | null
+          status: Database["public"]["Enums"]["custo_casa_status"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          data?: string
+          data_pagamento?: string | null
+          descricao: string
+          empresa_id: string
+          id?: string
+          observacao?: string | null
+          status?: Database["public"]["Enums"]["custo_casa_status"]
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data?: string
+          data_pagamento?: string | null
+          descricao?: string
+          empresa_id?: string
+          id?: string
+          observacao?: string | null
+          status?: Database["public"]["Enums"]["custo_casa_status"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custos_casa_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dre_historico: {
         Row: {
           ano: number
@@ -594,6 +644,66 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maquina_amarela: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          empresa_id: string
+          id: string
+          loja_id: string
+          taxa_percentual: number
+          tipo_pagamento: Database["public"]["Enums"]["tipo_pagamento_maquina"]
+          updated_at: string
+          valor_bruto: number
+          valor_liquido: number
+          valor_taxa: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          empresa_id: string
+          id?: string
+          loja_id: string
+          taxa_percentual?: number
+          tipo_pagamento: Database["public"]["Enums"]["tipo_pagamento_maquina"]
+          updated_at?: string
+          valor_bruto?: number
+          valor_liquido?: number
+          valor_taxa?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          empresa_id?: string
+          id?: string
+          loja_id?: string
+          taxa_percentual?: number
+          tipo_pagamento?: Database["public"]["Enums"]["tipo_pagamento_maquina"]
+          updated_at?: string
+          valor_bruto?: number
+          valor_liquido?: number
+          valor_taxa?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquina_amarela_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maquina_amarela_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
         ]
@@ -927,6 +1037,7 @@ export type Database = {
       conciliacao_status: "OK" | "DIVERGENCIA" | "ANALISE"
       conta_pagar_status: "ABERTO" | "PAGO" | "ATRASADO"
       conta_receber_status: "ABERTO" | "PAGO" | "ATRASADO" | "NEGOCIADO"
+      custo_casa_status: "ABERTO" | "PAGO"
       etapa_cobranca: "D1" | "D7" | "D15" | "D30" | "JURIDICO"
       fechamento_status:
         | "ABERTO"
@@ -934,6 +1045,19 @@ export type Database = {
         | "CONCILIADO_OK"
         | "CONCILIADO_DIVERGENCIA"
         | "REABERTO"
+      tipo_pagamento_maquina:
+        | "DEBITO"
+        | "CREDITO"
+        | "PIX"
+        | "CREDITO_2X"
+        | "CREDITO_3X"
+        | "CREDITO_4X"
+        | "CREDITO_5X"
+        | "CREDITO_6X"
+        | "CREDITO_7X"
+        | "CREDITO_8X"
+        | "CREDITO_9X"
+        | "CREDITO_10X"
       vinculo_tipo: "CLT" | "MEI" | "PJ" | "ESTAGIARIO"
     }
     CompositeTypes: {
@@ -1068,6 +1192,7 @@ export const Constants = {
       conciliacao_status: ["OK", "DIVERGENCIA", "ANALISE"],
       conta_pagar_status: ["ABERTO", "PAGO", "ATRASADO"],
       conta_receber_status: ["ABERTO", "PAGO", "ATRASADO", "NEGOCIADO"],
+      custo_casa_status: ["ABERTO", "PAGO"],
       etapa_cobranca: ["D1", "D7", "D15", "D30", "JURIDICO"],
       fechamento_status: [
         "ABERTO",
@@ -1075,6 +1200,20 @@ export const Constants = {
         "CONCILIADO_OK",
         "CONCILIADO_DIVERGENCIA",
         "REABERTO",
+      ],
+      tipo_pagamento_maquina: [
+        "DEBITO",
+        "CREDITO",
+        "PIX",
+        "CREDITO_2X",
+        "CREDITO_3X",
+        "CREDITO_4X",
+        "CREDITO_5X",
+        "CREDITO_6X",
+        "CREDITO_7X",
+        "CREDITO_8X",
+        "CREDITO_9X",
+        "CREDITO_10X",
       ],
       vinculo_tipo: ["CLT", "MEI", "PJ", "ESTAGIARIO"],
     },

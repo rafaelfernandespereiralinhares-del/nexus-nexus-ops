@@ -26,6 +26,8 @@ import MetasSemanais from "./pages/financeiro/MetasSemanais";
 import ContasPagar from "./pages/financeiro/ContasPagar";
 import ContasReceber from "./pages/financeiro/ContasReceber";
 import Auditoria from "./pages/financeiro/Auditoria";
+import CustoCasa from "./pages/financeiro/CustoCasa";
+import MaquinaAmarela from "./pages/financeiro/MaquinaAmarela";
 
 import DiretoriaDashboard from "./pages/diretoria/DiretoriaDashboard";
 import RelatorioIA from "./pages/diretoria/RelatorioIA";
@@ -58,19 +60,21 @@ const App = () => (
             </Route>
 
             {/* Loja */}
-            <Route element={<ProtectedRoute allowedRoles={['LOJA', 'FINANCEIRO']}><AppLayout /></ProtectedRoute>}>
+            <Route element={<ProtectedRoute allowedRoles={['LOJA', 'FINANCEIRO', 'ADMIN']}><AppLayout /></ProtectedRoute>}>
               <Route path="/loja/dashboard" element={<LojaDashboard />} />
               <Route path="/loja/caixa" element={<CaixaDiario />} />
+              <Route path="/maquina-amarela" element={<MaquinaAmarela />} />
             </Route>
 
             {/* Financeiro */}
-            <Route element={<ProtectedRoute allowedRoles={['FINANCEIRO']}><AppLayout /></ProtectedRoute>}>
+            <Route element={<ProtectedRoute allowedRoles={['FINANCEIRO', 'ADMIN']}><AppLayout /></ProtectedRoute>}>
               <Route path="/financeiro/conciliacao" element={<Conciliacao />} />
               <Route path="/financeiro/metas" element={<Metas />} />
               <Route path="/financeiro/metas-semanais" element={<MetasSemanais />} />
               <Route path="/financeiro/contas-pagar" element={<ContasPagar />} />
               <Route path="/financeiro/contas-receber" element={<ContasReceber />} />
               <Route path="/financeiro/auditoria" element={<Auditoria />} />
+              <Route path="/financeiro/custo-casa" element={<CustoCasa />} />
               <Route path="/financeiro/funcionarios" element={<Funcionarios />} />
               <Route path="/financeiro/campanhas" element={<CampanhasVendas />} />
               <Route path="/financeiro/folha" element={<FolhaPagamento />} />

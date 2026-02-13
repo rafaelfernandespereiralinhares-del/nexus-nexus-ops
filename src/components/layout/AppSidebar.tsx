@@ -2,7 +2,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, DollarSign, Target, FileCheck, AlertTriangle, CreditCard, Receipt,
-  Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet, CalendarDays, BarChart3
+  Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet, CalendarDays, BarChart3,
+  Home, Smartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -24,26 +25,22 @@ export default function AppSidebar() {
 
   if (primaryRole === 'ADMIN') {
     navItems.push(
-      // Visão Macro
       { label: 'Painel Macro', icon: LayoutDashboard, path: '/admin/dashboard' },
-      // Operacional
       { label: 'Dashboard Loja', icon: Store, path: '/loja/dashboard' },
       { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
-      // Financeiro
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
       { label: 'Metas Semanais', icon: CalendarDays, path: '/financeiro/metas-semanais' },
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
       { label: 'Contas a Receber', icon: Receipt, path: '/financeiro/contas-receber' },
+      { label: 'Custo Casa', icon: Home, path: '/financeiro/custo-casa' },
+      { label: 'Máquina Amarela', icon: Smartphone, path: '/maquina-amarela' },
       { label: 'Auditoria', icon: AlertTriangle, path: '/financeiro/auditoria' },
-      // RH
       { label: 'Funcionários', icon: UserCog, path: '/financeiro/funcionarios' },
       { label: 'Campanhas', icon: Megaphone, path: '/financeiro/campanhas' },
       { label: 'Folha & DRE', icon: Wallet, path: '/financeiro/folha' },
-      // Diretoria
       { label: 'Planejamento DRE', icon: BarChart3, path: '/diretoria/planejamento' },
       { label: 'Relatório IA', icon: Brain, path: '/diretoria/relatorio-ia' },
-      // Admin
       { label: 'Empresas', icon: Building2, path: '/admin/empresas' },
       { label: 'Lojas', icon: Store, path: '/admin/lojas' },
       { label: 'Usuários', icon: Users, path: '/admin/usuarios' },
@@ -54,26 +51,25 @@ export default function AppSidebar() {
     navItems.push(
       { label: 'Dashboard', icon: LayoutDashboard, path: '/loja/dashboard' },
       { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
+      { label: 'Máquina Amarela', icon: Smartphone, path: '/maquina-amarela' },
     );
   }
 
   if (primaryRole === 'FINANCEIRO') {
     navItems.push(
-      // Operacional
       { label: 'Dashboard Loja', icon: Store, path: '/loja/dashboard' },
       { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
-      // Financeiro
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
       { label: 'Metas Semanais', icon: CalendarDays, path: '/financeiro/metas-semanais' },
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
       { label: 'Contas a Receber', icon: Receipt, path: '/financeiro/contas-receber' },
+      { label: 'Custo Casa', icon: Home, path: '/financeiro/custo-casa' },
+      { label: 'Máquina Amarela', icon: Smartphone, path: '/maquina-amarela' },
       { label: 'Auditoria', icon: AlertTriangle, path: '/financeiro/auditoria' },
-      // RH
       { label: 'Funcionários', icon: UserCog, path: '/financeiro/funcionarios' },
       { label: 'Campanhas', icon: Megaphone, path: '/financeiro/campanhas' },
       { label: 'Folha & DRE', icon: Wallet, path: '/financeiro/folha' },
-      // Estratégico
       { label: 'Planejamento DRE', icon: BarChart3, path: '/financeiro/planejamento' },
     );
   }
