@@ -10,7 +10,7 @@ export default function Index() {
     if (loading) return;
     if (!session) { navigate('/login', { replace: true }); return; }
     switch (primaryRole) {
-      case 'ADMIN': navigate('/admin/empresas', { replace: true }); break;
+      case 'ADMIN': navigate('/admin/dashboard', { replace: true }); break;
       case 'DIRETORIA': navigate('/diretoria/dashboard', { replace: true }); break;
       case 'FINANCEIRO': navigate('/financeiro/conciliacao', { replace: true }); break;
       case 'LOJA': navigate('/loja/dashboard', { replace: true }); break;
