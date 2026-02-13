@@ -28,6 +28,10 @@ import Auditoria from "./pages/financeiro/Auditoria";
 import DiretoriaDashboard from "./pages/diretoria/DiretoriaDashboard";
 import RelatorioIA from "./pages/diretoria/RelatorioIA";
 
+import Funcionarios from "./pages/rh/Funcionarios";
+import CampanhasVendas from "./pages/rh/CampanhasVendas";
+import FolhaPagamento from "./pages/rh/FolhaPagamento";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -62,6 +66,9 @@ const App = () => (
               <Route path="/financeiro/contas-pagar" element={<ContasPagar />} />
               <Route path="/financeiro/contas-receber" element={<ContasReceber />} />
               <Route path="/financeiro/auditoria" element={<Auditoria />} />
+              <Route path="/financeiro/funcionarios" element={<Funcionarios />} />
+              <Route path="/financeiro/campanhas" element={<CampanhasVendas />} />
+              <Route path="/financeiro/folha" element={<FolhaPagamento />} />
             </Route>
 
             {/* Diretoria */}

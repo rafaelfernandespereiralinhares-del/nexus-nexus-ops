@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, DollarSign, Target, FileCheck, AlertTriangle, CreditCard, Receipt,
-  Building2, Users, Brain, LogOut, Store, ChevronLeft
+  Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -34,6 +34,9 @@ export default function AppSidebar() {
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
       { label: 'Contas a Receber', icon: Receipt, path: '/financeiro/contas-receber' },
       { label: 'Auditoria', icon: AlertTriangle, path: '/financeiro/auditoria' },
+      { label: 'Funcionários', icon: UserCog, path: '/financeiro/funcionarios' },
+      { label: 'Campanhas', icon: Megaphone, path: '/financeiro/campanhas' },
+      { label: 'Folha & DRE', icon: Wallet, path: '/financeiro/folha' },
       { label: 'Dashboard Diretoria', icon: LayoutDashboard, path: '/diretoria/dashboard' },
       { label: 'Relatório IA', icon: Brain, path: '/diretoria/relatorio-ia' },
     );
@@ -53,6 +56,9 @@ export default function AppSidebar() {
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
       { label: 'Contas a Receber', icon: Receipt, path: '/financeiro/contas-receber' },
       { label: 'Auditoria', icon: AlertTriangle, path: '/financeiro/auditoria' },
+      { label: 'Funcionários', icon: UserCog, path: '/financeiro/funcionarios' },
+      { label: 'Campanhas', icon: Megaphone, path: '/financeiro/campanhas' },
+      { label: 'Folha & DRE', icon: Wallet, path: '/financeiro/folha' },
     );
   }
 
