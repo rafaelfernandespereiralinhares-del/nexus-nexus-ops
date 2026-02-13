@@ -123,24 +123,41 @@ export default function ContasPagar() {
     }
     let imported = 0;
     for (const row of rows) {
-      const fornecedor = row['Fornecedor'] || row['fornecedor'];
-      const lojaNome = row['Loja'] || row['loja'];
-      const valor = parseFloat((row['Valor'] || row['valor'] || '0').replace(',', '.'));
-      const vencimento = row['Vencimento'] || row['vencimento'];
-      const loja = lojas.find(l => l.nome.toLowerCase() === lojaNome?.toLowerCase());
+      const fornecedor = row['Fornecedor'] || row['fornecedor'] || row['FORNECEDOR'];
+      const lojaNome = row['Loja'] || row['loja'] || row['EMPRESA'] || row['Empresa'] || row['empresa'];
+      const valorRaw = row['Valor'] || row['valor'] || row['VALOR'] || '0';
+      const valor = parseFloat(valorRaw.replace(/R\$\s?/g, '').replace(/\./g, '').replace(',', '.'));
+      const vencimento = row['Vencimento'] || row['vencimento'] || row['VENCIMENTO'];
+      const statusRaw = (row['Status'] || row['status'] || row['STATUS'] || '').toUpperCase().trim();
+      const loja = lojas.find(l => l.nome.toLowerCase().includes(lojaNome?.toLowerCase()) || lojaNome?.toLowerCase().includes(l.nome.toLowerCase()));
       if (!fornecedor || !loja || !valor || !vencimento) continue;
-      // Try to parse date (DD/MM/YYYY -> YYYY-MM-DD)
+      // Try to parse date - supports DD/MM/YYYY, M/D/YY, YYYY-MM-DD
       let dataISO = vencimento;
       if (vencimento.includes('/')) {
         const parts = vencimento.split('/');
-        if (parts.length === 3) dataISO = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        if (parts.length === 3) {
+          const p0 = parseInt(parts[0]), p1 = parseInt(parts[1]), p2 = parseInt(parts[2]);
+          // Detect format: if first part > 12, it's DD/MM/YYYY; otherwise M/D/YY or MM/DD/YYYY
+          if (p0 > 12) {
+            // DD/MM/YYYY
+            const year = p2 < 100 ? 2000 + p2 : p2;
+            dataISO = `${year}-${String(p1).padStart(2, '0')}-${String(p0).padStart(2, '0')}`;
+          } else {
+            // M/D/YY (US format) - common in Excel
+            const year = p2 < 100 ? 2000 + p2 : p2;
+            dataISO = `${year}-${String(p0).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
+          }
+        }
       }
+      const status = statusRaw === 'PAGO' ? 'PAGO' : statusRaw === 'ATRASADO' ? 'ATRASADO' : 'ABERTO';
       const { error } = await supabase.from('contas_pagar').insert({
         empresa_id: profile.empresa_id,
         loja_id: loja.id,
         fornecedor,
         valor,
         vencimento: dataISO,
+        status: status as any,
+        data_pagamento: status === 'PAGO' ? dataISO : null,
       });
       if (!error) imported++;
     }
