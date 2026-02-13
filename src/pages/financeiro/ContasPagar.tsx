@@ -10,8 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, CreditCard, Download, Upload } from 'lucide-react';
+import { Plus, CreditCard, Download, Upload, SplitSquareHorizontal } from 'lucide-react';
 import { validateOrError, contaPagarSchema } from '@/lib/validation';
+import { Checkbox } from '@/components/ui/checkbox';
 import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
@@ -25,6 +26,7 @@ export default function ContasPagar() {
   const [contas, setContas] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ loja_id: '', fornecedor: '', valor: '', vencimento: '', status: 'ABERTO' });
+  const [ratear, setRatear] = useState(false);
 
   useEffect(() => {
     if (!profile?.empresa_id) return;
@@ -41,24 +43,40 @@ export default function ContasPagar() {
 
   const handleSave = async () => {
     if (!profile?.empresa_id) return;
-    const v = validateOrError(contaPagarSchema, { loja_id: form.loja_id, fornecedor: form.fornecedor, valor: parseFloat(form.valor), vencimento: form.vencimento });
-    if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
-    const { error } = await supabase.from('contas_pagar').insert({
-      empresa_id: profile.empresa_id,
-      loja_id: form.loja_id,
-      fornecedor: form.fornecedor,
-      valor: parseFloat(form.valor),
-      vencimento: form.vencimento,
-      status: form.status as any,
-    });
-    if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+
+    if (ratear) {
+      // Rateio: divide equally among all active stores
+      const valorTotal = parseFloat(form.valor);
+      if (!form.fornecedor || !valorTotal || !form.vencimento) {
+        toast({ title: 'Preencha fornecedor, valor e vencimento', variant: 'destructive' }); return;
+      }
+      const valorPorLoja = Math.round((valorTotal / lojas.length) * 100) / 100;
+      let inserted = 0;
+      for (const loja of lojas) {
+        const { error } = await supabase.from('contas_pagar').insert({
+          empresa_id: profile.empresa_id, loja_id: loja.id,
+          fornecedor: form.fornecedor, valor: valorPorLoja,
+          vencimento: form.vencimento, status: form.status as any,
+        });
+        if (!error) inserted++;
+      }
+      toast({ title: `Conta rateada entre ${inserted} lojas!` });
     } else {
+      const v = validateOrError(contaPagarSchema, { loja_id: form.loja_id, fornecedor: form.fornecedor, valor: parseFloat(form.valor), vencimento: form.vencimento });
+      if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
+      const { error } = await supabase.from('contas_pagar').insert({
+        empresa_id: profile.empresa_id, loja_id: form.loja_id,
+        fornecedor: form.fornecedor, valor: parseFloat(form.valor),
+        vencimento: form.vencimento, status: form.status as any,
+      });
+      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
       toast({ title: 'Conta registrada!' });
-      setDialogOpen(false);
-      setForm({ loja_id: '', fornecedor: '', valor: '', vencimento: '', status: 'ABERTO' });
-      fetchContas();
     }
+
+    setDialogOpen(false);
+    setForm({ loja_id: '', fornecedor: '', valor: '', vencimento: '', status: 'ABERTO' });
+    setRatear(false);
+    fetchContas();
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -193,20 +211,33 @@ export default function ContasPagar() {
             <DialogContent>
               <DialogHeader><DialogTitle>Nova Conta a Pagar</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Loja</Label>
-                  <Select value={form.loja_id} onValueChange={v => setForm(p => ({ ...p, loja_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>{lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="ratear" checked={ratear} onCheckedChange={(v) => setRatear(!!v)} />
+                  <Label htmlFor="ratear" className="flex items-center gap-1 text-sm cursor-pointer">
+                    <SplitSquareHorizontal className="h-4 w-4" /> Ratear entre todas as lojas ({lojas.length})
+                  </Label>
                 </div>
+                {!ratear && (
+                  <div className="space-y-1.5">
+                    <Label>Loja</Label>
+                    <Select value={form.loja_id} onValueChange={v => setForm(p => ({ ...p, loja_id: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {ratear && (
+                  <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                    O valor total será dividido igualmente entre {lojas.length} lojas: <strong>R$ {lojas.length > 0 ? (parseFloat(form.valor || '0') / lojas.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</strong> cada
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   <Label>Fornecedor</Label>
                   <Input value={form.fornecedor} onChange={e => setForm(p => ({ ...p, fornecedor: e.target.value }))} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Valor</Label>
+                    <Label>Valor {ratear ? 'Total' : ''}</Label>
                     <Input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5">
