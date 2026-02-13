@@ -58,7 +58,7 @@ const App = () => (
             </Route>
 
             {/* Loja */}
-            <Route element={<ProtectedRoute allowedRoles={['LOJA']}><AppLayout /></ProtectedRoute>}>
+            <Route element={<ProtectedRoute allowedRoles={['LOJA', 'FINANCEIRO']}><AppLayout /></ProtectedRoute>}>
               <Route path="/loja/dashboard" element={<LojaDashboard />} />
               <Route path="/loja/caixa" element={<CaixaDiario />} />
             </Route>
@@ -74,10 +74,11 @@ const App = () => (
               <Route path="/financeiro/funcionarios" element={<Funcionarios />} />
               <Route path="/financeiro/campanhas" element={<CampanhasVendas />} />
               <Route path="/financeiro/folha" element={<FolhaPagamento />} />
+              <Route path="/financeiro/planejamento" element={<PlanejamentoEstrategico />} />
             </Route>
 
             {/* Diretoria */}
-            <Route element={<ProtectedRoute allowedRoles={['DIRETORIA']}><AppLayout /></ProtectedRoute>}>
+            <Route element={<ProtectedRoute allowedRoles={['DIRETORIA', 'FINANCEIRO']}><AppLayout /></ProtectedRoute>}>
               <Route path="/diretoria/dashboard" element={<DiretoriaDashboard />} />
               <Route path="/diretoria/planejamento" element={<PlanejamentoEstrategico />} />
               <Route path="/diretoria/relatorio-ia" element={<RelatorioIA />} />

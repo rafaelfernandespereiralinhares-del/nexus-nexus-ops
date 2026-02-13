@@ -10,7 +10,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // === Authentication: verify caller has DIRETORIA or ADMIN role ===
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -39,7 +38,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify role
     const { data: callerRoles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
@@ -51,7 +49,6 @@ serve(async (req) => {
       });
     }
 
-    // Verify empresa_id matches caller's company
     const { empresa_id } = await req.json();
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,7 +64,6 @@ serve(async (req) => {
       .eq("user_id", callerId)
       .single();
 
-    // Non-ADMIN users can only generate reports for their own company
     const isAdmin = callerRoles?.some((r: { role: string }) => r.role === "ADMIN");
     if (!isAdmin && callerProfile?.empresa_id !== empresa_id) {
       return new Response(JSON.stringify({ error: "Acesso negado a esta empresa" }), {
@@ -82,25 +78,48 @@ serve(async (req) => {
     const mesAtual = hoje.slice(0, 7);
     const seteDiasAtras = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-    const [fechRes, metasRes, concRes, receberRes, lojasRes] = await Promise.all([
+    const [fechRes, metasRes, concRes, receberRes, lojasRes, dreRes] = await Promise.all([
       supabaseAdmin.from("fechamentos").select("*").eq("empresa_id", empresa_id).is("deleted_at", null).gte("data", seteDiasAtras),
       supabaseAdmin.from("metas").select("*").eq("empresa_id", empresa_id).eq("mes", mesAtual),
       supabaseAdmin.from("conciliacoes").select("*").eq("empresa_id", empresa_id).gte("data", seteDiasAtras),
       supabaseAdmin.from("contas_receber").select("*").eq("empresa_id", empresa_id).eq("status", "ATRASADO"),
       supabaseAdmin.from("lojas").select("id, nome").eq("empresa_id", empresa_id).eq("ativa", true),
+      supabaseAdmin.from("dre_historico").select("*").eq("empresa_id", empresa_id).order("ano", { ascending: false }).order("mes").limit(500),
     ]);
 
-    const prompt = `Você é um analista financeiro do sistema NEXUS. Gere um relatório executivo em português sobre a empresa nos últimos 7 dias e mês atual.
+    // Summarize DRE by year for prompt
+    const dreByYear: Record<string, { receita: number; lucro: number; despesas: number }> = {};
+    if (dreRes.data) {
+      for (const row of dreRes.data) {
+        const key = `${row.loja_nome}_${row.ano}`;
+        if (!dreByYear[key]) dreByYear[key] = { receita: 0, lucro: 0, despesas: 0 };
+        if (row.categoria === 'RECEITAS') dreByYear[key].receita += Number(row.valor);
+        if (row.subcategoria === 'LUCRO_LIQUIDO') dreByYear[key].lucro += Number(row.valor);
+        if (['DESPESAS_FIXAS', 'DESPESAS_VARIAVEIS'].includes(row.categoria)) dreByYear[key].despesas += Number(row.valor);
+      }
+    }
 
-DADOS:
+    const prompt = `Você é um analista financeiro do sistema NEXUS. Gere um relatório executivo em português sobre a empresa nos últimos 7 dias, mês atual e evolução histórica.
+
+DADOS OPERACIONAIS:
 - Lojas: ${JSON.stringify(lojasRes.data)}
 - Fechamentos (últimos 7 dias): ${JSON.stringify(fechRes.data)}
 - Metas do mês: ${JSON.stringify(metasRes.data)}
 - Conciliações (últimos 7 dias): ${JSON.stringify(concRes.data)}
 - Contas em atraso: ${JSON.stringify(receberRes.data)}
 
-Inclua: ranking de lojas, divergências, metas vs realizado, inadimplência, tendências e recomendações.
-Formato: relatório executivo conciso com bullet points.`;
+DADOS HISTÓRICOS DRE (resumo por loja/ano):
+${JSON.stringify(dreByYear)}
+
+Inclua:
+1. Ranking de lojas e divergências operacionais
+2. Metas vs realizado do mês
+3. Inadimplência e tendências
+4. **Análise histórica**: evolução de receita, lucro e margem ano a ano
+5. **Projeções**: com base nos dados históricos, projete tendências para o próximo trimestre
+6. **Recomendações estratégicas**: ações concretas baseadas nos dados históricos e operacionais
+
+Formato: relatório executivo conciso com bullet points e seções claras.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -111,7 +130,7 @@ Formato: relatório executivo conciso com bullet points.`;
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "Você é um analista financeiro especialista em redes de lojas físicas." },
+          { role: "system", content: "Você é um analista financeiro especialista em redes de lojas físicas com foco em planejamento estratégico e projeções." },
           { role: "user", content: prompt },
         ],
       }),

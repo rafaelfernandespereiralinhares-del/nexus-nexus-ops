@@ -59,15 +59,22 @@ export default function AppSidebar() {
 
   if (primaryRole === 'FINANCEIRO') {
     navItems.push(
+      // Operacional
+      { label: 'Dashboard Loja', icon: Store, path: '/loja/dashboard' },
+      { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
+      // Financeiro
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
       { label: 'Metas Semanais', icon: CalendarDays, path: '/financeiro/metas-semanais' },
       { label: 'Contas a Pagar', icon: CreditCard, path: '/financeiro/contas-pagar' },
       { label: 'Contas a Receber', icon: Receipt, path: '/financeiro/contas-receber' },
       { label: 'Auditoria', icon: AlertTriangle, path: '/financeiro/auditoria' },
+      // RH
       { label: 'Funcionários', icon: UserCog, path: '/financeiro/funcionarios' },
       { label: 'Campanhas', icon: Megaphone, path: '/financeiro/campanhas' },
       { label: 'Folha & DRE', icon: Wallet, path: '/financeiro/folha' },
+      // Estratégico
+      { label: 'Planejamento DRE', icon: BarChart3, path: '/financeiro/planejamento' },
     );
   }
 
