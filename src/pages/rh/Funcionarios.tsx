@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Wrench, UserCog } from 'lucide-react';
+import { Plus, Wrench, UserCog, Download, Upload, Pencil, Trash2 } from 'lucide-react';
+import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 interface Funcionario {
@@ -20,14 +21,16 @@ interface Funcionario {
 const fmt = (v: number) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
 export default function Funcionarios() {
-  const { profile } = useAuth();
+  const { profile, primaryRole } = useAuth();
   const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [servicos, setServicos] = useState<Record<string, { total: number; comissao: number }>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [servicoDialogOpen, setServicoDialogOpen] = useState(false);
   const [selectedFunc, setSelectedFunc] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('ativos');
   const [filterLoja, setFilterLoja] = useState('todas');
   const [filterCargo, setFilterCargo] = useState('todos');
@@ -48,7 +51,6 @@ export default function Funcionarios() {
     const { data } = await supabase.from('funcionarios').select('*').eq('empresa_id', profile.empresa_id).order('nome');
     if (data) {
       setFuncionarios(data as any);
-      // Fetch aggregated services
       const { data: svcs } = await supabase.from('servicos_funcionario').select('funcionario_id, valor, comissao').eq('empresa_id', profile.empresa_id);
       if (svcs) {
         const agg: Record<string, { total: number; comissao: number }> = {};
@@ -62,11 +64,16 @@ export default function Funcionarios() {
     }
   };
 
+  const resetForm = () => {
+    setForm({ nome: '', cargo: '', loja_id: '', vinculo: 'CLT', salario: '', passagem: '', ajuda_custo: '', admissao: new Date().toISOString().slice(0, 10) });
+    setEditId(null);
+  };
+
   const handleSave = async () => {
     if (!profile?.empresa_id || !form.nome || !form.loja_id) {
       toast({ title: 'Preencha nome e loja', variant: 'destructive' }); return;
     }
-    const { error } = await supabase.from('funcionarios').insert({
+    const payload = {
       empresa_id: profile.empresa_id,
       loja_id: form.loja_id,
       nome: form.nome,
@@ -76,14 +83,42 @@ export default function Funcionarios() {
       passagem: parseFloat(form.passagem) || 0,
       ajuda_custo: parseFloat(form.ajuda_custo) || 0,
       admissao: form.admissao,
-    });
+    };
+    let error;
+    if (editId) {
+      ({ error } = await supabase.from('funcionarios').update(payload).eq('id', editId));
+    } else {
+      ({ error } = await supabase.from('funcionarios').insert(payload));
+    }
     if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); }
     else {
-      toast({ title: 'Funcionário cadastrado!' });
+      toast({ title: editId ? 'Funcionário atualizado!' : 'Funcionário cadastrado!' });
       setDialogOpen(false);
-      setForm({ nome: '', cargo: '', loja_id: '', vinculo: 'CLT', salario: '', passagem: '', ajuda_custo: '', admissao: new Date().toISOString().slice(0, 10) });
+      resetForm();
       fetchFuncionarios();
     }
+  };
+
+  const handleEdit = (f: Funcionario) => {
+    setEditId(f.id);
+    setForm({
+      nome: f.nome, cargo: f.cargo, loja_id: f.loja_id, vinculo: f.vinculo,
+      salario: String(f.salario), passagem: String(f.passagem), ajuda_custo: String(f.ajuda_custo),
+      admissao: f.admissao,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleToggleAtivo = async (f: Funcionario) => {
+    await supabase.from('funcionarios').update({ ativo: !f.ativo }).eq('id', f.id);
+    toast({ title: f.ativo ? 'Funcionário desativado' : 'Funcionário reativado' });
+    fetchFuncionarios();
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('funcionarios').delete().eq('id', id);
+    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Funcionário excluído!' }); fetchFuncionarios(); }
   };
 
   const handleSaveServico = async () => {
@@ -105,6 +140,56 @@ export default function Funcionarios() {
     }
   };
 
+  // Export
+  const cols = [
+    { key: 'nome', label: 'Nome' }, { key: 'cargo', label: 'Cargo' }, { key: 'loja', label: 'Loja' },
+    { key: 'vinculo', label: 'Vínculo' }, { key: 'salario', label: 'Salário' }, { key: 'passagem', label: 'Passagem' },
+    { key: 'ajuda_custo', label: 'Ajuda de Custo' }, { key: 'admissao', label: 'Admissão' },
+  ];
+  const exportData = () => funcionarios.map(f => ({
+    nome: f.nome, cargo: f.cargo, loja: lojas.find(l => l.id === f.loja_id)?.nome ?? '-',
+    vinculo: f.vinculo, salario: Number(f.salario).toFixed(2), passagem: Number(f.passagem).toFixed(2),
+    ajuda_custo: Number(f.ajuda_custo).toFixed(2), admissao: new Date(f.admissao).toLocaleDateString('pt-BR'),
+  }));
+
+  const handleExportCSV = () => { exportToCSV(exportData(), 'funcionarios', cols); toast({ title: 'Exportado!' }); };
+  const handleExportExcel = () => { exportToExcel(exportData(), 'funcionarios', cols); toast({ title: 'Exportado!' }); };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.empresa_id) return;
+    let rows: Record<string, string>[];
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      const buffer = await file.arrayBuffer();
+      ({ rows } = parseExcel(buffer));
+    } else {
+      const text = await file.text();
+      ({ rows } = parseCSV(text));
+    }
+    if (rows.length === 0) { toast({ title: 'Arquivo vazio', variant: 'destructive' }); return; }
+    let imported = 0;
+    for (const row of rows) {
+      const nome = row['Nome'] || row['nome'];
+      const cargo = row['Cargo'] || row['cargo'] || '';
+      const lojaNome = row['Loja'] || row['loja'];
+      const vinculo = (row['Vínculo'] || row['vinculo'] || row['Vinculo'] || 'CLT').toUpperCase();
+      const salario = parseFloat((row['Salário'] || row['salario'] || row['Salario'] || '0').replace(/R\$\s?/g, '').replace(/\./g, '').replace(',', '.'));
+      const passagem = parseFloat((row['Passagem'] || row['passagem'] || '0').replace(/R\$\s?/g, '').replace(/\./g, '').replace(',', '.'));
+      const ajuda = parseFloat((row['Ajuda de Custo'] || row['ajuda_custo'] || row['Ajuda'] || '0').replace(/R\$\s?/g, '').replace(/\./g, '').replace(',', '.'));
+      const loja = lojas.find(l => l.nome.toLowerCase().includes(lojaNome?.toLowerCase()) || lojaNome?.toLowerCase().includes(l.nome.toLowerCase()));
+      if (!nome || !loja) continue;
+      const { error } = await supabase.from('funcionarios').insert({
+        empresa_id: profile.empresa_id, loja_id: loja.id, nome, cargo,
+        vinculo: (['CLT', 'MEI', 'PJ', 'ESTAGIARIO'].includes(vinculo) ? vinculo : 'CLT') as any,
+        salario, passagem, ajuda_custo: ajuda,
+      });
+      if (!error) imported++;
+    }
+    toast({ title: `${imported} funcionários importados de ${rows.length}` });
+    if (fileRef.current) fileRef.current.value = '';
+    fetchFuncionarios();
+  };
+
   const cargos = [...new Set(funcionarios.map(f => f.cargo).filter(Boolean))];
   const filtered = funcionarios.filter(f => {
     if (filterStatus === 'ativos' && !f.ativo) return false;
@@ -121,7 +206,17 @@ export default function Funcionarios() {
           <h1 className="font-display text-2xl font-bold">Funcionários</h1>
           <p className="text-sm text-muted-foreground">Gestão de equipe e desempenho</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExportCSV} className="gap-2" disabled={funcionarios.length === 0}>
+            <Download className="h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} className="gap-2" disabled={funcionarios.length === 0}>
+            <Download className="h-4 w-4" /> Excel
+          </Button>
+          <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
+            <Upload className="h-4 w-4" /> Importar
+          </Button>
+          <input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleImport} className="hidden" />
           <Dialog open={servicoDialogOpen} onOpenChange={setServicoDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2"><Wrench className="h-4 w-4" /> Registrar Serviço</Button>
@@ -154,13 +249,12 @@ export default function Funcionarios() {
               </div>
             </DialogContent>
           </Dialog>
-
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={o => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Plus className="h-4 w-4" /> Novo Funcionário</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Novo Funcionário</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editId ? 'Editar' : 'Novo'} Funcionário</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label>Nome</Label>
@@ -209,7 +303,7 @@ export default function Funcionarios() {
                   <Label>Data de Admissão</Label>
                   <Input type="date" value={form.admissao} onChange={e => setForm(p => ({ ...p, admissao: e.target.value }))} />
                 </div>
-                <Button onClick={handleSave} className="w-full">Cadastrar</Button>
+                <Button onClick={handleSave} className="w-full">{editId ? 'Salvar' : 'Cadastrar'}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -270,9 +364,19 @@ export default function Funcionarios() {
                   <TableCell className="text-right">{fmt(servicos[f.id]?.total || 0)}</TableCell>
                   <TableCell className="text-right text-success">{fmt(servicos[f.id]?.comissao || 0)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => { setSelectedFunc(f.id); setServicoDialogOpen(true); }}>
-                      <UserCog className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(f)} title="Editar">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => { setSelectedFunc(f.id); setServicoDialogOpen(true); }} title="Registrar Serviço">
+                        <UserCog className="h-4 w-4" />
+                      </Button>
+                      {primaryRole === 'ADMIN' && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(f.id)} title="Excluir" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
