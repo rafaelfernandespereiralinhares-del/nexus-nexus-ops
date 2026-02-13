@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Save, Lock } from 'lucide-react';
 
@@ -22,10 +23,11 @@ interface Fechamento {
 const fmt = (v: number) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
 export default function CaixaDiario() {
-  const { profile, primaryRole } = useAuth();
+  const { profile, primaryRole, hasRole } = useAuth();
   const { toast } = useToast();
   const hoje = new Date().toISOString().slice(0, 10);
   const isLoja = primaryRole === 'LOJA';
+  const isAdmin = hasRole('ADMIN');
 
   // Loja-specific state (for LOJA role - single day entry)
   const [form, setForm] = useState({
@@ -259,6 +261,7 @@ export default function CaixaDiario() {
                 <TableHead className="text-right">Saídas</TableHead>
                 <TableHead className="text-right">Total Entradas</TableHead>
                 <TableHead className="text-right font-bold">Saldo Final</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Responsável</TableHead>
               </TableRow>
             </TableHeader>
@@ -277,12 +280,31 @@ export default function CaixaDiario() {
                     <TableCell className="text-right">{fmt(Number(f.saidas))}</TableCell>
                     <TableCell className="text-right text-primary">{fmt(te)}</TableCell>
                     <TableCell className="text-right font-bold">{fmt(sf)}</TableCell>
+                    <TableCell>
+                      {isAdmin ? (
+                        <Select value={f.status} onValueChange={async (v) => {
+                          await supabase.from('fechamentos').update({ status: v as any }).eq('id', f.id);
+                          fetchFechamentos();
+                        }}>
+                          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ABERTO">Aberto</SelectItem>
+                            <SelectItem value="FECHADO_PENDENTE_CONCILIACAO">Fechado</SelectItem>
+                            <SelectItem value="CONCILIADO_OK">Conciliado OK</SelectItem>
+                            <SelectItem value="CONCILIADO_DIVERGENCIA">Divergência</SelectItem>
+                            <SelectItem value="REABERTO">Reaberto</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant={f.status === 'ABERTO' ? 'secondary' : 'default'}>{f.status === 'ABERTO' ? 'Aberto' : f.status === 'FECHADO_PENDENTE_CONCILIACAO' ? 'Fechado' : f.status}</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{f.responsavel_nome_snapshot || '—'}</TableCell>
                   </TableRow>
                 );
               })}
               {filteredFechamentos.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">Nenhum lançamento encontrado</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">Nenhum lançamento encontrado</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

@@ -15,6 +15,7 @@ import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 interface Loja { id: string; nome: string; }
 
 export default function Conciliacao() {
+  const isAdmin = useAuth().hasRole('ADMIN');
   const { profile } = useAuth();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -201,6 +202,7 @@ export default function Conciliacao() {
                 <TableHead className="text-right">Valor Caixa</TableHead>
                 <TableHead className="text-right">Diferença</TableHead>
                 <TableHead>Status</TableHead>
+                {isAdmin && <TableHead>Ação</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -212,10 +214,26 @@ export default function Conciliacao() {
                   <TableCell className="text-right">R$ {Number(c.valor_caixa).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right">R$ {Number(c.diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell>{statusBadge(c.status)}</TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <Select value={c.status} onValueChange={async (v) => {
+                        await supabase.from('conciliacoes').update({ status: v as any }).eq('id', c.id);
+                        const { data: updated } = await supabase.from('conciliacoes').select('*').eq('empresa_id', profile?.empresa_id).order('data', { ascending: false }).limit(50);
+                        if (updated) setConciliacoes(updated);
+                      }}>
+                        <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="OK">OK</SelectItem>
+                          <SelectItem value="DIVERGENCIA">Divergência</SelectItem>
+                          <SelectItem value="ANALISE">Análise</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
               {conciliacoes.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Nenhuma conciliação registrada</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground">Nenhuma conciliação registrada</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
