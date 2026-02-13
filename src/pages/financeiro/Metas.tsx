@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Download, Upload, Trophy } from 'lucide-react';
+import { Plus, Download, Upload, Trophy, Pencil, Trash2 } from 'lucide-react';
 import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
@@ -19,12 +19,13 @@ const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
 export default function Metas() {
-  const { profile } = useAuth();
+  const { profile, primaryRole } = useAuth();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [metas, setMetas] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const now = new Date();
   const [filterMes, setFilterMes] = useState(String(now.getMonth()));
   const [filterAno, setFilterAno] = useState(String(now.getFullYear()));
@@ -43,23 +44,53 @@ export default function Metas() {
     if (data) setMetas(data);
   };
 
+  const resetForm = () => {
+    setForm({ loja_id: '', mes: now.toISOString().slice(0, 7), meta_mensal: '', meta_diaria: '', meta_lucro: '' });
+    setEditId(null);
+  };
+
   const handleSave = async () => {
     if (!profile?.empresa_id || !form.loja_id) { toast({ title: 'Selecione a loja', variant: 'destructive' }); return; }
-    const { error } = await supabase.from('metas').insert({
+    const payload = {
       empresa_id: profile.empresa_id,
       loja_id: form.loja_id,
       mes: form.mes,
       meta_mensal: parseFloat(form.meta_mensal) || 0,
       meta_diaria: parseFloat(form.meta_diaria) || 0,
       meta_lucro: parseFloat(form.meta_lucro) || 0,
-    });
+    };
+    let error;
+    if (editId) {
+      ({ error } = await supabase.from('metas').update(payload).eq('id', editId));
+    } else {
+      ({ error } = await supabase.from('metas').insert(payload));
+    }
     if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); }
     else {
-      toast({ title: 'Meta cadastrada!' });
+      toast({ title: editId ? 'Meta atualizada!' : 'Meta cadastrada!' });
       setDialogOpen(false);
-      setForm({ loja_id: '', mes: now.toISOString().slice(0, 7), meta_mensal: '', meta_diaria: '', meta_lucro: '' });
+      resetForm();
       fetchMetas();
     }
+  };
+
+  const handleEdit = (m: any) => {
+    setEditId(m.id);
+    setForm({
+      loja_id: m.loja_id,
+      mes: m.mes,
+      meta_mensal: String(m.meta_mensal),
+      meta_diaria: String(m.meta_diaria),
+      meta_lucro: String(m.meta_lucro),
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    // Soft approach: we just delete since RLS handles permissions
+    const { error } = await supabase.from('metas').delete().eq('id', id);
+    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); }
+    else { toast({ title: 'Meta excluída!' }); fetchMetas(); }
   };
 
   const mesStr = `${filterAno}-${String(parseInt(filterMes) + 1).padStart(2, '0')}`;
@@ -118,10 +149,10 @@ export default function Metas() {
             <Upload className="h-4 w-4" /> Importar
           </Button>
           <input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleImport} className="hidden" />
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={o => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Meta</Button></DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nova Meta</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editId ? 'Editar Meta' : 'Nova Meta'}</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label>Loja</Label>
@@ -148,7 +179,7 @@ export default function Metas() {
                     <Input type="number" step="0.01" value={form.meta_lucro} onChange={e => setForm(p => ({ ...p, meta_lucro: e.target.value }))} />
                   </div>
                 </div>
-                <Button onClick={handleSave} className="w-full">Cadastrar</Button>
+                <Button onClick={handleSave} className="w-full">{editId ? 'Salvar Alterações' : 'Cadastrar'}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -186,7 +217,17 @@ export default function Metas() {
                       <p className="text-xs text-muted-foreground">{meses[parseInt(filterMes)]} {filterAno} · #{idx + 1}</p>
                     </div>
                   </div>
-                  <Badge variant={fatPct >= 100 ? 'default' : 'destructive'}>{fatPct}%</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={fatPct >= 100 ? 'default' : 'destructive'}>{fatPct}%</Badge>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(m)} title="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {primaryRole === 'ADMIN' && (
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id)} title="Excluir" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-3">
                   <div>
