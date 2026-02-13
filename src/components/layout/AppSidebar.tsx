@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, DollarSign, Target, FileCheck, AlertTriangle, CreditCard, Receipt,
-  Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet, CalendarDays
+  Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet, CalendarDays, BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -41,6 +41,7 @@ export default function AppSidebar() {
       { label: 'Campanhas', icon: Megaphone, path: '/financeiro/campanhas' },
       { label: 'Folha & DRE', icon: Wallet, path: '/financeiro/folha' },
       // Diretoria
+      { label: 'Planejamento DRE', icon: BarChart3, path: '/diretoria/planejamento' },
       { label: 'Relatório IA', icon: Brain, path: '/diretoria/relatorio-ia' },
       // Admin
       { label: 'Empresas', icon: Building2, path: '/admin/empresas' },
@@ -73,6 +74,7 @@ export default function AppSidebar() {
   if (primaryRole === 'DIRETORIA') {
     navItems.push(
       { label: 'Dashboard', icon: LayoutDashboard, path: '/diretoria/dashboard' },
+      { label: 'Planejamento DRE', icon: BarChart3, path: '/diretoria/planejamento' },
       { label: 'Relatório IA', icon: Brain, path: '/diretoria/relatorio-ia' },
     );
   }
