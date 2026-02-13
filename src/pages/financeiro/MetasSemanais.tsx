@@ -65,6 +65,7 @@ export default function MetasSemanais() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [metas, setMetas] = useState<MetaSemanal[]>([]);
+  const [fechamentos, setFechamentos] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -83,9 +84,11 @@ export default function MetasSemanais() {
     Promise.all([
       supabase.from('lojas').select('id, nome').eq('empresa_id', profile.empresa_id).eq('ativa', true),
       supabase.from('funcionarios').select('id, loja_id').eq('empresa_id', profile.empresa_id).eq('ativo', true),
-    ]).then(([lojasRes, funcRes]) => {
+      supabase.from('fechamentos').select('loja_id, data, dinheiro, pix, cartao').eq('empresa_id', profile.empresa_id).is('deleted_at', null),
+    ]).then(([lojasRes, funcRes, fechRes]) => {
       if (lojasRes.data) setLojas(lojasRes.data);
       if (funcRes.data) setFuncionarios(funcRes.data as Funcionario[]);
+      if (fechRes.data) setFechamentos(fechRes.data);
     });
     fetchMetas();
   }, [profile]);
@@ -95,6 +98,13 @@ export default function MetasSemanais() {
     const { data } = await supabase.from('metas_semanais').select('*')
       .eq('empresa_id', profile.empresa_id).order('semana_inicio', { ascending: false });
     if (data) setMetas(data as unknown as MetaSemanal[]);
+  };
+
+  // Calculate realizado from fechamentos for a given loja and week range
+  const getRealizadoSemana = (lojaId: string, semanaInicio: string, semanaFim: string) => {
+    return fechamentos
+      .filter(f => f.loja_id === lojaId && f.data >= semanaInicio && f.data <= semanaFim)
+      .reduce((sum, f) => sum + Number(f.dinheiro || 0) + Number(f.pix || 0) + Number(f.cartao || 0), 0);
   };
 
   const getColabCount = (lojaId: string) => funcionarios.filter(f => f.loja_id === lojaId).length;
@@ -246,7 +256,7 @@ export default function MetasSemanais() {
   const ranking = lojas.map(loja => {
     const lojaMetasWeek = filtered.filter(m => m.loja_id === loja.id);
     const totalMeta = lojaMetasWeek.reduce((s, m) => s + Number(m.meta_faturamento_semana), 0);
-    const totalRealizado = lojaMetasWeek.reduce((s, m) => s + Number(m.realizado_semana), 0);
+    const totalRealizado = lojaMetasWeek.reduce((s, m) => s + getRealizadoSemana(m.loja_id, m.semana_inicio, m.semana_fim), 0);
     const totalCusto = lojaMetasWeek.reduce((s, m) => s + Number(m.custo_total_semana), 0);
     const pct = totalMeta > 0 ? Math.round((totalRealizado / totalMeta) * 100) : 0;
     const sobra = totalRealizado - totalCusto;
@@ -388,7 +398,7 @@ export default function MetasSemanais() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1"><Trophy className="h-4 w-4" /> Realizado</div>
-              <p className="text-2xl font-bold">{fmt(filtered.reduce((s, m) => s + Number(m.realizado_semana), 0))}</p>
+              <p className="text-2xl font-bold">{fmt(filtered.reduce((s, m) => s + getRealizadoSemana(m.loja_id, m.semana_inicio, m.semana_fim), 0))}</p>
             </CardContent>
           </Card>
           <Card>
@@ -415,7 +425,8 @@ export default function MetasSemanais() {
               <CardContent className="space-y-3">
                 {weekMetas.map(m => {
                   const loja = lojas.find(l => l.id === m.loja_id);
-                  const pct = m.meta_faturamento_semana > 0 ? Math.round((Number(m.realizado_semana) / Number(m.meta_faturamento_semana)) * 100) : 0;
+                  const realizado = getRealizadoSemana(m.loja_id, m.semana_inicio, m.semana_fim);
+                  const pct = m.meta_faturamento_semana > 0 ? Math.round((realizado / Number(m.meta_faturamento_semana)) * 100) : 0;
                   return (
                     <div key={m.id} className="flex items-center gap-4 border rounded-lg p-3">
                       <div className="flex-1 min-w-0">
