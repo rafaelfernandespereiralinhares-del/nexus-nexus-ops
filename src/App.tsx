@@ -32,7 +32,6 @@ import RelatorioIA from "./pages/diretoria/RelatorioIA";
 import Funcionarios from "./pages/rh/Funcionarios";
 import CampanhasVendas from "./pages/rh/CampanhasVendas";
 import FolhaPagamento from "./pages/rh/FolhaPagamento";
-import TempParseFolha from "./pages/TempParseFolha";
 
 const queryClient = new QueryClient();
 
@@ -80,7 +79,6 @@ const App = () => (
               <Route path="/diretoria/relatorio-ia" element={<RelatorioIA />} />
             </Route>
 
-            <Route path="/temp-parse" element={<TempParseFolha />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
