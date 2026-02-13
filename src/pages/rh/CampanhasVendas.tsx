@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Wrench, Trophy, Download, Upload, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Wrench, Trophy, Download, Upload, Pencil, Trash2, Medal, Image } from 'lucide-react';
 import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Campanha {
@@ -19,14 +20,28 @@ interface Campanha {
   meta_quantidade: number; progresso: number; data_inicio: string; data_fim: string; ativa: boolean;
 }
 
+interface FuncRanking {
+  funcionario_id: string;
+  nome: string;
+  loja_nome: string;
+  total_servicos: number;
+  total_valor: number;
+  total_comissao: number;
+}
+
 export default function CampanhasVendas() {
   const { profile, primaryRole } = useAuth();
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
+  const rankingRef = useRef<HTMLDivElement>(null);
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [tab, setTab] = useState('todas');
+  const [expandedCampanha, setExpandedCampanha] = useState<string | null>(null);
+  const [ranking, setRanking] = useState<FuncRanking[]>([]);
+  const [funcionarios, setFuncionarios] = useState<{ id: string; nome: string; loja_id: string }[]>([]);
+  const [lojas, setLojas] = useState<{ id: string; nome: string }[]>([]);
   const [form, setForm] = useState({
     nome: '', produto_servico: '', tipo: 'MENSAL',
     meta_quantidade: '', data_inicio: new Date().toISOString().slice(0, 10),
@@ -36,12 +51,67 @@ export default function CampanhasVendas() {
   useEffect(() => {
     if (!profile?.empresa_id) return;
     fetchCampanhas();
+    fetchFuncionariosAndLojas();
   }, [profile]);
 
   const fetchCampanhas = async () => {
     if (!profile?.empresa_id) return;
     const { data } = await supabase.from('campanhas').select('*').eq('empresa_id', profile.empresa_id).order('created_at', { ascending: false });
     if (data) setCampanhas(data as any);
+  };
+
+  const fetchFuncionariosAndLojas = async () => {
+    if (!profile?.empresa_id) return;
+    const [funcRes, lojasRes] = await Promise.all([
+      supabase.from('funcionarios').select('id, nome, loja_id').eq('empresa_id', profile.empresa_id).eq('ativo', true),
+      supabase.from('lojas').select('id, nome').eq('empresa_id', profile.empresa_id).eq('ativa', true),
+    ]);
+    if (funcRes.data) setFuncionarios(funcRes.data);
+    if (lojasRes.data) setLojas(lojasRes.data);
+  };
+
+  const fetchRanking = useCallback(async (campanha: Campanha) => {
+    if (!profile?.empresa_id) return;
+    // Get servicos in the campanha date range
+    const { data: servicos } = await supabase.from('servicos_funcionario')
+      .select('funcionario_id, valor, comissao')
+      .eq('empresa_id', profile.empresa_id)
+      .gte('data', campanha.data_inicio)
+      .lte('data', campanha.data_fim);
+
+    if (!servicos) { setRanking([]); return; }
+
+    // Aggregate by funcionario
+    const map: Record<string, { total_servicos: number; total_valor: number; total_comissao: number }> = {};
+    servicos.forEach(s => {
+      if (!map[s.funcionario_id]) map[s.funcionario_id] = { total_servicos: 0, total_valor: 0, total_comissao: 0 };
+      map[s.funcionario_id].total_servicos += 1;
+      map[s.funcionario_id].total_valor += Number(s.valor) || 0;
+      map[s.funcionario_id].total_comissao += Number(s.comissao) || 0;
+    });
+
+    const rankList: FuncRanking[] = Object.entries(map).map(([fid, data]) => {
+      const func = funcionarios.find(f => f.id === fid);
+      const loja = lojas.find(l => l.id === func?.loja_id);
+      return {
+        funcionario_id: fid,
+        nome: func?.nome ?? 'Desconhecido',
+        loja_nome: loja?.nome ?? '-',
+        ...data,
+      };
+    }).sort((a, b) => b.total_servicos - a.total_servicos);
+
+    setRanking(rankList);
+  }, [profile, funcionarios, lojas]);
+
+  const toggleRanking = (campanha: Campanha) => {
+    if (expandedCampanha === campanha.id) {
+      setExpandedCampanha(null);
+      setRanking([]);
+    } else {
+      setExpandedCampanha(campanha.id);
+      fetchRanking(campanha);
+    }
   };
 
   const resetForm = () => {
@@ -107,6 +177,40 @@ export default function CampanhasVendas() {
   const handleExportCSV = () => { exportToCSV(expData(), 'campanhas', cols); toast({ title: 'Exportado!' }); };
   const handleExportExcel = () => { exportToExcel(expData(), 'campanhas', cols); toast({ title: 'Exportado!' }); };
 
+  const handleExportRankingExcel = (campanha: Campanha) => {
+    if (ranking.length === 0) { toast({ title: 'Nenhum dado para exportar', variant: 'destructive' }); return; }
+    const data = ranking.map((r, i) => ({
+      posicao: String(i + 1),
+      nome: r.nome,
+      loja: r.loja_nome,
+      servicos: String(r.total_servicos),
+      valor: r.total_valor.toFixed(2),
+      comissao: r.total_comissao.toFixed(2),
+    }));
+    const rankCols = [
+      { key: 'posicao', label: 'Posição' }, { key: 'nome', label: 'Funcionário' },
+      { key: 'loja', label: 'Loja' }, { key: 'servicos', label: 'Serviços' },
+      { key: 'valor', label: 'Valor Total (R$)' }, { key: 'comissao', label: 'Comissão (R$)' },
+    ];
+    exportToExcel(data, `ranking_${campanha.nome}`, rankCols);
+    toast({ title: 'Ranking exportado!' });
+  };
+
+  const handleExportRankingImage = async (campanha: Campanha) => {
+    if (!rankingRef.current) return;
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(rankingRef.current, { backgroundColor: '#ffffff', scale: 2 });
+      const link = document.createElement('a');
+      link.download = `ranking_${campanha.nome}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast({ title: 'Imagem exportada!' });
+    } catch {
+      toast({ title: 'Erro ao exportar imagem', variant: 'destructive' });
+    }
+  };
+
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile?.empresa_id) return;
@@ -150,6 +254,13 @@ export default function CampanhasVendas() {
     if (t === 'DIARIA') return <Badge variant="outline">Diária</Badge>;
     if (t === 'SEMANAL') return <Badge variant="outline">Semanal</Badge>;
     return <Badge variant="outline">Mensal</Badge>;
+  };
+
+  const medalColor = (pos: number) => {
+    if (pos === 0) return 'text-yellow-500';
+    if (pos === 1) return 'text-gray-400';
+    if (pos === 2) return 'text-amber-700';
+    return 'text-muted-foreground';
   };
 
   return (
@@ -243,6 +354,7 @@ export default function CampanhasVendas() {
         <TabsContent value={tab} className="mt-4 space-y-4">
           {filtered.map(c => {
             const pct = c.meta_quantidade > 0 ? Math.round((c.progresso / c.meta_quantidade) * 100) : 0;
+            const isExpanded = expandedCampanha === c.id;
             return (
               <Card key={c.id}>
                 <CardContent className="pt-6">
@@ -256,6 +368,9 @@ export default function CampanhasVendas() {
                     <div className="flex items-center gap-2">
                       {tipoBadge(c.tipo)}
                       <Badge variant={pct >= 100 ? 'default' : 'destructive'} className="text-xs">{pct}%</Badge>
+                      <Button variant="outline" size="sm" onClick={() => toggleRanking(c)} className="gap-1">
+                        <Trophy className="h-4 w-4" /> Ranking
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(c)} title="Editar">
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -273,6 +388,72 @@ export default function CampanhasVendas() {
                     </div>
                     <Progress value={pct} className="mt-1" />
                   </div>
+
+                  {/* Ranking expandido */}
+                  {isExpanded && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold flex items-center gap-2">
+                          <Medal className="h-5 w-5 text-warning" /> Ranking de Funcionários
+                        </h3>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleExportRankingExcel(c)} className="gap-1">
+                            <Download className="h-3 w-3" /> Excel
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleExportRankingImage(c)} className="gap-1">
+                            <Image className="h-3 w-3" /> Imagem
+                          </Button>
+                        </div>
+                      </div>
+                      <div ref={rankingRef} className="bg-background p-4 rounded-lg">
+                        <div className="text-center mb-3">
+                          <p className="font-bold text-lg">{c.nome}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(c.data_inicio).toLocaleDateString('pt-BR')} a {new Date(c.data_fim).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        {ranking.length > 0 ? (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12">#</TableHead>
+                                <TableHead>Funcionário</TableHead>
+                                <TableHead>Loja</TableHead>
+                                <TableHead className="text-right">Serviços</TableHead>
+                                <TableHead className="text-right">Valor (R$)</TableHead>
+                                <TableHead className="text-right">Comissão (R$)</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {ranking.map((r, i) => (
+                                <TableRow key={r.funcionario_id}>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      {i < 3 && <Medal className={`h-4 w-4 ${medalColor(i)}`} />}
+                                      <span className="font-bold">{i + 1}º</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-medium">{r.nome}</TableCell>
+                                  <TableCell>{r.loja_nome}</TableCell>
+                                  <TableCell className="text-right font-bold">{r.total_servicos}</TableCell>
+                                  <TableCell className="text-right">
+                                    {r.total_valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {r.total_comissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        ) : (
+                          <p className="text-center text-sm text-muted-foreground py-4">
+                            Nenhum serviço registrado no período desta campanha
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
