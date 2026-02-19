@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import AppSidebar from './AppSidebar';
 import MobileBottomNav from './MobileBottomNav';
 import { useIsMobile } from '@/hooks/use-mobile';
+import AIChatSupport from '@/components/AIChatSupport';
 
 export default function AppLayout() {
   const isMobile = useIsMobile();
@@ -15,6 +16,7 @@ export default function AppLayout() {
           </div>
         </main>
         <MobileBottomNav />
+        <AIChatSupport />
       </div>
     );
   }
@@ -27,6 +29,7 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </main>
+      <AIChatSupport />
     </div>
   );
 }
