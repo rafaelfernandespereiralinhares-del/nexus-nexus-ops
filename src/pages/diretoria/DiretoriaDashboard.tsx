@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, TrendingDown, Award, AlertTriangle, BarChart2, LineChart as LineChartIcon } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Cell, Legend
+  LineChart, Line, Cell, Legend, PieChart, Pie, AreaChart, Area
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,6 +37,9 @@ export default function DiretoriaDashboard() {
   const [rankingLojas, setRankingLojas] = useState<{ nome: string; total: number }[]>([]);
   const [lojasSemaforo, setLojasSemaforo] = useState<{ id: string; nome: string; status: 'verde' | 'amarelo' | 'vermelho'; pct: number }[]>([]);
   const [evolucaoMensal, setEvolucaoMensal] = useState<{ mes: string; total: number }[]>([]);
+  const [evolucaoDiaria, setEvolucaoDiaria] = useState<{ dia: string; total: number }[]>([]);
+  const [distRecebimentos, setDistRecebimentos] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [metaVsRealizado, setMetaVsRealizado] = useState<{ nome: string; meta: number; realizado: number }[]>([]);
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [filterMes, setFilterMes] = useState(new Date().toISOString().slice(0, 7));
 
@@ -62,8 +65,22 @@ export default function DiretoriaDashboard() {
     const ranking = lojas.map(l => ({ nome: l.nome, total: lojaMap[l.id] || 0 })).sort((a, b) => b.total - a.total);
     setRankingLojas(ranking);
 
-    const { data: receber } = await supabase.from('contas_receber').select('valor').eq('empresa_id', empresaId).eq('status', 'ATRASADO' as any);
-    setInadimplencia((receber || []).reduce((sum, c) => sum + (Number(c.valor) || 0), 0));
+    const { data: receber } = await supabase.from('contas_receber').select('valor, status').eq('empresa_id', empresaId);
+
+    // Dist Recebimentos
+    const receberStatusMap: Record<string, number> = { ABERTO: 0, PAGO: 0, ATRASADO: 0, NEGOCIADO: 0 };
+    (receber || []).forEach(r => {
+      const st = r.status || 'ABERTO';
+      receberStatusMap[st] = (receberStatusMap[st] || 0) + (Number(r.valor) || 0);
+    });
+    setDistRecebimentos([
+      { name: 'Pago', value: receberStatusMap['PAGO'], color: '#10b981' },
+      { name: 'Aberto', value: receberStatusMap['ABERTO'], color: '#f59e0b' },
+      { name: 'Atrasado', value: receberStatusMap['ATRASADO'], color: '#ef4444' },
+      { name: 'Negociado', value: receberStatusMap['NEGOCIADO'], color: '#8b5cf6' },
+    ].filter(d => d.value > 0));
+
+    setInadimplencia(receberStatusMap['ATRASADO'] || 0);
 
     const { data: metas } = await supabase.from('metas').select('loja_id, meta_mensal').eq('empresa_id', empresaId).eq('mes', filterMes);
     const { data: concDiv } = await supabase.from('conciliacoes').select('loja_id').eq('empresa_id', empresaId).eq('status', 'DIVERGENCIA' as any).gte('data', `${filterMes}-01`);
@@ -82,6 +99,18 @@ export default function DiretoriaDashboard() {
     });
     setLojasSemaforo(semaforo);
 
+    // Meta vs Realizado
+    const metaR = lojas.map(l => {
+      const meta = (metas || []).find(m => m.loja_id === l.id);
+      return {
+        nome: l.nome,
+        meta: Number(meta?.meta_mensal) || 0,
+        realizado: lojaMap[l.id] || 0
+      };
+    });
+    setMetaVsRealizado(metaR);
+
+    // Evolução Mensal
     const { data: fechAll } = await supabase.from('fechamentos').select('total_entradas, data').eq('empresa_id', empresaId).is('deleted_at', null).order('data');
     const mesMap: Record<string, number> = {};
     (fechAll || []).forEach(f => {
@@ -92,6 +121,24 @@ export default function DiretoriaDashboard() {
       mes: MESES[parseInt(mes.slice(5, 7)) - 1] + '/' + mes.slice(2, 4),
       total,
     })));
+
+    // Evolução Diária no mês atual filtrado
+    const diariaMap: Record<string, number> = {};
+    (fechamentos || []).forEach(f => {
+      const d = (f.data as string).slice(8, 10);
+      diariaMap[d] = (diariaMap[d] || 0) + (Number(f.total_entradas) || 0);
+    });
+    // Fill all days of the month to make a continuous line
+    const [anoF, mesF] = filterMes.split('-');
+    const diasNoMes = new Date(parseInt(anoF), parseInt(mesF), 0).getDate();
+    const diariArr = [];
+    let accDiario = 0;
+    for (let i = 1; i <= diasNoMes; i++) {
+      const diaStr = String(i).padStart(2, '0');
+      accDiario += diariaMap[diaStr] || 0;
+      diariArr.push({ dia: diaStr, total: accDiario, diario: diariaMap[diaStr] || 0 });
+    }
+    setEvolucaoDiaria(diariArr);
   }, [profile, filterMes]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -232,7 +279,75 @@ export default function DiretoriaDashboard() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+        {/* Dist Recebimentos & Faturamento Diário */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Distribuição de Recebimentos</CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <ResponsiveContainer width="100%" height={230}>
+              <PieChart>
+                <Pie
+                  data={distRecebimentos}
+                  cx="50%" cy="50%"
+                  innerRadius={60} outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {distRecebimentos.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Evolução Diária</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={230}>
+              <AreaChart data={evolucaoDiaria} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="dia" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis tickFormatter={fmtShort} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={55} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="total" name="Acumulado" stroke="#3b82f6" fillOpacity={1} fill="url(#colorTotal)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Meta vs Realizado */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Meta vs Realizado por Loja</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={metaVsRealizado} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis tickFormatter={fmtShort} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 12, marginTop: '10px' }} />
+              <Bar dataKey="meta" name="Meta" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="realizado" name="Realizado" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       {/* Semáforo */}
       <Card>

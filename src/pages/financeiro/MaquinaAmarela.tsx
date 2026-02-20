@@ -145,7 +145,7 @@ export default function MaquinaAmarela() {
   const previewValorTaxa = Math.round(previewBruto * (previewTaxa / 100) * 100) / 100;
   const previewLiquido = Math.round((previewBruto - previewValorTaxa) * 100) / 100;
 
-  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   return (
     <div className="space-y-6">
@@ -240,7 +240,7 @@ export default function MaquinaAmarela() {
         </Select>
         <Select value={filterAno} onValueChange={setFilterAno}>
           <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-          <SelectContent>{[2024, 2025, 2026].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+          <SelectContent>{Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
         </Select>
       </div>
 

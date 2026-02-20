@@ -31,14 +31,14 @@ function getWeeksOfMonth(year: number, month: number) {
   const weeks: { inicio: Date; fim: Date; label: string }[] = [];
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  
+
   let current = new Date(firstDay);
   // Adjust to Monday
   const dayOfWeek = current.getDay();
   if (dayOfWeek !== 1) {
     current.setDate(current.getDate() - ((dayOfWeek + 6) % 7));
   }
-  
+
   let weekNum = 1;
   while (current <= lastDay || weekNum <= 4) {
     const start = new Date(current);
@@ -56,7 +56,7 @@ function getWeeksOfMonth(year: number, month: number) {
   return weeks;
 }
 
-const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function MetasSemanais() {
   const { profile, primaryRole } = useAuth();
@@ -190,7 +190,7 @@ export default function MetasSemanais() {
       const mesNum = parseInt(filterMes) + 1;
       const anoNum = parseInt(filterAno);
       const mesStr = `${anoNum}-${String(mesNum).padStart(2, '0')}`;
-      
+
       const { data: contasData } = await supabase.from('contas_pagar')
         .select('loja_id, valor')
         .eq('empresa_id', profile.empresa_id)
@@ -200,12 +200,12 @@ export default function MetasSemanais() {
       // Calculate per store
       const folhaPorLoja: Record<string, number> = {};
       const contasPorLoja: Record<string, number> = {};
-      
+
       funcData?.forEach(f => {
         const total = Number(f.salario) + Number(f.passagem) + Number(f.ajuda_custo);
         folhaPorLoja[f.loja_id] = (folhaPorLoja[f.loja_id] || 0) + total;
       });
-      
+
       contasData?.forEach(c => {
         contasPorLoja[c.loja_id] = (contasPorLoja[c.loja_id] || 0) + Number(c.valor);
       });
@@ -224,7 +224,7 @@ export default function MetasSemanais() {
         for (const week of weeks) {
           const inicio = week.inicio.toISOString().slice(0, 10);
           const fim = week.fim.toISOString().slice(0, 10);
-          
+
           // Check if already exists
           const exists = metas.some(m => m.loja_id === loja.id && m.semana_inicio === inicio);
           if (exists) continue;
@@ -376,7 +376,7 @@ export default function MetasSemanais() {
         </Select>
         <Select value={filterAno} onValueChange={setFilterAno}>
           <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-          <SelectContent>{[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+          <SelectContent>{Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
         </Select>
       </div>
 

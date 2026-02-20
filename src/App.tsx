@@ -19,6 +19,7 @@ import AdminUsuarios from "./pages/admin/AdminUsuarios";
 
 import LojaDashboard from "./pages/loja/LojaDashboard";
 import CaixaDiario from "./pages/loja/CaixaDiario";
+import Manutencao from "./pages/loja/Manutencao";
 
 import Conciliacao from "./pages/financeiro/Conciliacao";
 import Metas from "./pages/financeiro/Metas";
@@ -60,9 +61,10 @@ const App = () => (
             </Route>
 
             {/* Loja */}
-            <Route element={<ProtectedRoute allowedRoles={['LOJA', 'FINANCEIRO', 'ADMIN']}><AppLayout /></ProtectedRoute>}>
+            <Route element={<ProtectedRoute allowedRoles={['LOJA', 'FINANCEIRO', 'ADMIN', 'DIRETORIA']}><AppLayout /></ProtectedRoute>}>
               <Route path="/loja/dashboard" element={<LojaDashboard />} />
               <Route path="/loja/caixa" element={<CaixaDiario />} />
+              <Route path="/loja/manutencao" element={<Manutencao />} />
               <Route path="/maquina-amarela" element={<MaquinaAmarela />} />
             </Route>
 

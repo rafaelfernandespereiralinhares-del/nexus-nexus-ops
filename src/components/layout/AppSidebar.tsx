@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, DollarSign, Target, FileCheck, AlertTriangle, CreditCard, Receipt,
   Building2, Users, Brain, LogOut, Store, ChevronLeft, UserCog, Megaphone, Wallet, CalendarDays, BarChart3,
-  Home, Smartphone
+  Home, Smartphone, Wrench
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -27,6 +27,7 @@ export default function AppSidebar() {
     navItems.push(
       { label: 'Painel Macro', icon: LayoutDashboard, path: '/admin/dashboard' },
       { label: 'Dashboard Loja', icon: Store, path: '/loja/dashboard' },
+      { label: 'Manutenção', icon: Wrench, path: '/loja/manutencao' },
       { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
@@ -50,6 +51,7 @@ export default function AppSidebar() {
   if (primaryRole === 'LOJA') {
     navItems.push(
       { label: 'Dashboard', icon: LayoutDashboard, path: '/loja/dashboard' },
+      { label: 'Manutenção', icon: Wrench, path: '/loja/manutencao' },
       { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
       { label: 'Máquina Amarela', icon: Smartphone, path: '/maquina-amarela' },
     );
@@ -58,6 +60,7 @@ export default function AppSidebar() {
   if (primaryRole === 'FINANCEIRO') {
     navItems.push(
       { label: 'Dashboard Loja', icon: Store, path: '/loja/dashboard' },
+      { label: 'Manutenção', icon: Wrench, path: '/loja/manutencao' },
       { label: 'Caixa Diário', icon: DollarSign, path: '/loja/caixa' },
       { label: 'Conciliação', icon: FileCheck, path: '/financeiro/conciliacao' },
       { label: 'Metas', icon: Target, path: '/financeiro/metas' },
@@ -77,6 +80,7 @@ export default function AppSidebar() {
   if (primaryRole === 'DIRETORIA') {
     navItems.push(
       { label: 'Dashboard', icon: LayoutDashboard, path: '/diretoria/dashboard' },
+      { label: 'Manutenção', icon: Wrench, path: '/loja/manutencao' },
       { label: 'Planejamento DRE', icon: BarChart3, path: '/diretoria/planejamento' },
       { label: 'Relatório IA', icon: Brain, path: '/diretoria/relatorio-ia' },
     );

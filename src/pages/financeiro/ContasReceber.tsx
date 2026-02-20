@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Download, Upload } from 'lucide-react';
+import { Plus, Download, Upload, Pencil, Trash2 } from 'lucide-react';
 import { validateOrError, contaReceberSchema } from '@/lib/validation';
 import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
@@ -25,6 +25,34 @@ export default function ContasReceber() {
   const [contas, setContas] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ loja_id: '', cliente: '', valor: '', vencimento: '', status: 'ABERTO', etapa_cobranca: 'D1' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const openNewDialog = () => {
+    setEditingId(null);
+    setForm({ loja_id: '', cliente: '', valor: '', vencimento: '', status: 'ABERTO', etapa_cobranca: 'D1' });
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (conta: any) => {
+    setEditingId(conta.id);
+    setForm({
+      loja_id: conta.loja_id || '',
+      cliente: conta.cliente,
+      valor: conta.valor.toString(),
+      vencimento: conta.vencimento,
+      status: conta.status,
+      etapa_cobranca: conta.etapa_cobranca || 'D1'
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta conta?')) return;
+    const { error } = await supabase.from('contas_receber').delete().eq('id', id);
+    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Conta excluída com sucesso!' });
+    fetchContas();
+  };
 
   useEffect(() => {
     if (!profile?.empresa_id) return;
@@ -43,22 +71,45 @@ export default function ContasReceber() {
     if (!profile?.empresa_id) return;
     const v = validateOrError(contaReceberSchema, { loja_id: form.loja_id, cliente: form.cliente, valor: parseFloat(form.valor), vencimento: form.vencimento });
     if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
-    const { error } = await supabase.from('contas_receber').insert({
-      empresa_id: profile.empresa_id,
-      loja_id: form.loja_id,
-      cliente: form.cliente,
-      valor: parseFloat(form.valor),
-      vencimento: form.vencimento,
-      status: form.status as any,
-      etapa_cobranca: form.etapa_cobranca as any,
-    });
-    if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    if (editingId) {
+      const { error } = await supabase.from('contas_receber').update({
+        loja_id: form.loja_id,
+        cliente: form.cliente,
+        valor: parseFloat(form.valor),
+        vencimento: form.vencimento,
+        status: form.status as any,
+        etapa_cobranca: form.etapa_cobranca as any,
+      }).eq('id', editingId);
+
+      if (error) {
+        toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Conta atualizada!' });
+        setDialogOpen(false);
+        setEditingId(null);
+        setForm({ loja_id: '', cliente: '', valor: '', vencimento: '', status: 'ABERTO', etapa_cobranca: 'D1' });
+        fetchContas();
+      }
     } else {
-      toast({ title: 'Conta registrada!' });
-      setDialogOpen(false);
-      setForm({ loja_id: '', cliente: '', valor: '', vencimento: '', status: 'ABERTO', etapa_cobranca: 'D1' });
-      fetchContas();
+      const { error } = await supabase.from('contas_receber').insert({
+        empresa_id: profile.empresa_id,
+        loja_id: form.loja_id,
+        cliente: form.cliente,
+        valor: parseFloat(form.valor),
+        vencimento: form.vencimento,
+        status: form.status as any,
+        etapa_cobranca: form.etapa_cobranca as any,
+      });
+
+      if (error) {
+        toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Conta registrada!' });
+        setDialogOpen(false);
+        setEditingId(null);
+        setForm({ loja_id: '', cliente: '', valor: '', vencimento: '', status: 'ABERTO', etapa_cobranca: 'D1' });
+        fetchContas();
+      }
     }
   };
 
@@ -177,9 +228,9 @@ export default function ContasReceber() {
           </Button>
           <input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleImport} className="hidden" />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Conta</Button></DialogTrigger>
+            <DialogTrigger asChild><Button className="gap-2" onClick={openNewDialog}><Plus className="h-4 w-4" /> Nova Conta</Button></DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nova Conta a Receber</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Editar Conta a Receber" : "Nova Conta a Receber"}</DialogTitle></DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label>Loja</Label>
@@ -207,7 +258,7 @@ export default function ContasReceber() {
                   <Select value={form.etapa_cobranca} onValueChange={v => setForm(p => ({ ...p, etapa_cobranca: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {['D1','D7','D15','D30','JURIDICO'].map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                      {['D1', 'D7', 'D15', 'D30', 'JURIDICO'].map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -242,19 +293,30 @@ export default function ContasReceber() {
                   <TableCell><Badge variant="outline">{c.etapa_cobranca}</Badge></TableCell>
                   <TableCell>{statusBadge(c.status)}</TableCell>
                   <TableCell>
-                    {isAdmin ? (
-                      <Select value={c.status} onValueChange={v => updateStatus(c.id, v)}>
-                        <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ABERTO">Aberto</SelectItem>
-                          <SelectItem value="PAGO">Pago</SelectItem>
-                          <SelectItem value="ATRASADO">Atrasado</SelectItem>
-                          <SelectItem value="NEGOCIADO">Negociado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : c.status !== 'PAGO' ? (
-                      <Button variant="ghost" size="sm" onClick={() => updateStatus(c.id, 'PAGO')}>Marcar Pago</Button>
-                    ) : null}
+                    <div className="flex items-center justify-end gap-2">
+                      {isAdmin ? (
+                        <Select value={c.status} onValueChange={v => updateStatus(c.id, v)}>
+                          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ABERTO">Aberto</SelectItem>
+                            <SelectItem value="PAGO">Pago</SelectItem>
+                            <SelectItem value="ATRASADO">Atrasado</SelectItem>
+                            <SelectItem value="NEGOCIADO">Negociado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : c.status !== 'PAGO' ? (
+                        <Button variant="ghost" size="sm" onClick={() => updateStatus(c.id, 'PAGO')}>Marcar Pago</Button>
+                      ) : null}
+
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(c)}>
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, CreditCard, Download, Upload, SplitSquareHorizontal } from 'lucide-react';
+import { Plus, CreditCard, Download, Upload, SplitSquareHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { validateOrError, contaPagarSchema } from '@/lib/validation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
@@ -27,6 +27,35 @@ export default function ContasPagar() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ loja_id: '', fornecedor: '', valor: '', vencimento: '', status: 'ABERTO' });
   const [ratear, setRatear] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const openNewDialog = () => {
+    setEditingId(null);
+    setForm({ loja_id: '', fornecedor: '', valor: '', vencimento: '', status: 'ABERTO' });
+    setRatear(false);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (conta: any) => {
+    setEditingId(conta.id);
+    setForm({
+      loja_id: conta.loja_id || '',
+      fornecedor: conta.fornecedor,
+      valor: conta.valor.toString(),
+      vencimento: conta.vencimento,
+      status: conta.status,
+    });
+    setRatear(false);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta conta?')) return;
+    const { error } = await supabase.from('contas_pagar').delete().eq('id', id);
+    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Conta excluída com sucesso!' });
+    fetchContas();
+  };
 
   useEffect(() => {
     if (!profile?.empresa_id) return;
@@ -64,16 +93,28 @@ export default function ContasPagar() {
     } else {
       const v = validateOrError(contaPagarSchema, { loja_id: form.loja_id, fornecedor: form.fornecedor, valor: parseFloat(form.valor), vencimento: form.vencimento });
       if (v) { toast({ title: 'Validação', description: v, variant: 'destructive' }); return; }
-      const { error } = await supabase.from('contas_pagar').insert({
-        empresa_id: profile.empresa_id, loja_id: form.loja_id,
-        fornecedor: form.fornecedor, valor: parseFloat(form.valor),
-        vencimento: form.vencimento, status: form.status as any,
-      });
-      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
-      toast({ title: 'Conta registrada!' });
+
+      if (editingId) {
+        const { error } = await supabase.from('contas_pagar').update({
+          loja_id: form.loja_id,
+          fornecedor: form.fornecedor, valor: parseFloat(form.valor),
+          vencimento: form.vencimento, status: form.status as any,
+        }).eq('id', editingId);
+        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Conta atualizada!' });
+      } else {
+        const { error } = await supabase.from('contas_pagar').insert({
+          empresa_id: profile.empresa_id, loja_id: form.loja_id,
+          fornecedor: form.fornecedor, valor: parseFloat(form.valor),
+          vencimento: form.vencimento, status: form.status as any,
+        });
+        if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+        toast({ title: 'Conta registrada!' });
+      }
     }
 
     setDialogOpen(false);
+    setEditingId(null);
     setForm({ loja_id: '', fornecedor: '', valor: '', vencimento: '', status: 'ABERTO' });
     setRatear(false);
     fetchContas();
@@ -207,17 +248,19 @@ export default function ContasPagar() {
           </Button>
           <input type="file" accept=".csv,.xlsx,.xls" ref={fileRef} onChange={handleImport} className="hidden" />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild><Button className="gap-2"><Plus className="h-4 w-4" /> Nova Conta</Button></DialogTrigger>
+            <DialogTrigger asChild><Button className="gap-2" onClick={openNewDialog}><Plus className="h-4 w-4" /> Nova Conta</Button></DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nova Conta a Pagar</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? "Editar Conta a Pagar" : "Nova Conta a Pagar"}</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox id="ratear" checked={ratear} onCheckedChange={(v) => setRatear(!!v)} />
-                  <Label htmlFor="ratear" className="flex items-center gap-1 text-sm cursor-pointer">
-                    <SplitSquareHorizontal className="h-4 w-4" /> Ratear entre todas as lojas ({lojas.length})
-                  </Label>
-                </div>
-                {!ratear && (
+                {!editingId && (
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="ratear" checked={ratear} onCheckedChange={(v) => setRatear(!!v)} />
+                    <Label htmlFor="ratear" className="flex items-center gap-1 text-sm cursor-pointer">
+                      <SplitSquareHorizontal className="h-4 w-4" /> Ratear entre todas as lojas ({lojas.length})
+                    </Label>
+                  </div>
+                )}
+                {(!ratear || editingId) && (
                   <div className="space-y-1.5">
                     <Label>Loja</Label>
                     <Select value={form.loja_id} onValueChange={v => setForm(p => ({ ...p, loja_id: v }))}>
@@ -274,18 +317,28 @@ export default function ContasPagar() {
                   <TableCell>{new Date(c.vencimento).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell>{statusBadge(c.status)}</TableCell>
                   <TableCell>
-                    {isAdmin ? (
-                      <Select value={c.status} onValueChange={v => updateStatus(c.id, v)}>
-                        <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ABERTO">Aberto</SelectItem>
-                          <SelectItem value="PAGO">Pago</SelectItem>
-                          <SelectItem value="ATRASADO">Atrasado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : c.status !== 'PAGO' ? (
-                      <Button variant="ghost" size="sm" onClick={() => updateStatus(c.id, 'PAGO')}>Marcar Pago</Button>
-                    ) : null}
+                    <div className="flex items-center justify-end gap-2">
+                      {isAdmin ? (
+                        <Select value={c.status} onValueChange={v => updateStatus(c.id, v)}>
+                          <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ABERTO">Aberto</SelectItem>
+                            <SelectItem value="PAGO">Pago</SelectItem>
+                            <SelectItem value="ATRASADO">Atrasado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : c.status !== 'PAGO' ? (
+                        <Button variant="ghost" size="sm" onClick={() => updateStatus(c.id, 'PAGO')}>Marcar Pago</Button>
+                      ) : null}
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(c)}>
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

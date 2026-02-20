@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Download, Home, Pencil } from 'lucide-react';
+import { Plus, Download, Home, Pencil, Trash2 } from 'lucide-react';
 import { exportToExcel } from '@/lib/csv';
 
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -98,6 +98,14 @@ export default function CustoCasa() {
     setDialogOpen(true);
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este custo?')) return;
+    const { error } = await supabase.from('custos_casa').delete().eq('id', id);
+    if (error) { toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Custo excluído com sucesso!' });
+    fetchCustos();
+  };
+
   const updateStatus = async (id: string, status: string) => {
     await supabase.from('custos_casa').update({
       status: status as any,
@@ -121,7 +129,7 @@ export default function CustoCasa() {
     ]);
   };
 
-  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   return (
     <div className="space-y-6">
@@ -189,7 +197,7 @@ export default function CustoCasa() {
         </Select>
         <Select value={filterAno} onValueChange={setFilterAno}>
           <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-          <SelectContent>{[2024, 2025, 2026].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+          <SelectContent>{Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
         </Select>
       </div>
 
@@ -235,11 +243,16 @@ export default function CustoCasa() {
                       {c.status === 'PAGO' ? 'Pago' : 'Aberto'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                    {c.status !== 'PAGO' && (
-                      <Button variant="ghost" size="sm" onClick={() => updateStatus(c.id, 'PAGO')}>Pagar</Button>
-                    )}
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(c)}><Pencil className="h-4 w-4" /></Button>
+                      {c.status !== 'PAGO' && (
+                        <Button variant="ghost" size="sm" onClick={() => updateStatus(c.id, 'PAGO')}>Pagar</Button>
+                      )}
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

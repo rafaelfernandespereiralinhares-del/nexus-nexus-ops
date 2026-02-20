@@ -15,7 +15,7 @@ import { exportToCSV, exportToExcel, parseCSV, parseExcel } from '@/lib/csv';
 
 interface Loja { id: string; nome: string; }
 
-const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
 export default function Metas() {
@@ -213,7 +213,7 @@ export default function Metas() {
         <Select value={filterAno} onValueChange={setFilterAno}>
           <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
