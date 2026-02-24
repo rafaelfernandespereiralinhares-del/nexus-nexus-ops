@@ -37,17 +37,17 @@ export function MaintenanceForm({ empresaId, lojaId, initialData, onSuccess }: M
     });
 
     const { watch, handleSubmit, reset } = form;
-    const vMaoObra = watch('valor_mao_de_obra') || 0;
-    const vPecas = watch('valor_pecas') || 0;
-    const vCusto = watch('custo_pecas') || 0;
-    const vTaxa = watch('taxa_maquina') || 0;
+    const vMaoObra = Number(watch('valor_mao_de_obra')) || 0;
+    const vPecas = Number(watch('valor_pecas')) || 0;
+    const vCusto = Number(watch('custo_pecas')) || 0;
+    const vTaxa = Number(watch('taxa_maquina')) || 0;
 
     const total = vMaoObra + vPecas;
     const profit = total - vCusto - vTaxa;
 
     const onSubmit = (data: MaintenanceFormValues) => {
         // Inject calculated total and profit if backend doesn't do it (backend computed columns are read-only usually, but let's send total)
-        const payload = { ...data, valor_total: total };
+        const payload = { ...data, valor_total: total, lucro_liquido: profit };
 
         if (isEditing && initialData) {
             updateMutation.mutate({ id: initialData.id, ...payload }, {
@@ -82,11 +82,11 @@ export function MaintenanceForm({ empresaId, lojaId, initialData, onSuccess }: M
             <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/50">
                 <div className="space-y-2">
                     <Label>Mão de Obra (R$)</Label>
-                    <Input type="number" {...form.register('valor_mao_de_obra')} />
+                    <Input type="number" step="0.01" {...form.register('valor_mao_de_obra', { valueAsNumber: true })} />
                 </div>
                 <div className="space-y-2">
                     <Label>Valor Peça (Cobrado)</Label>
-                    <Input type="number" {...form.register('valor_pecas')} />
+                    <Input type="number" step="0.01" {...form.register('valor_pecas', { valueAsNumber: true })} />
                 </div>
                 <div className="space-y-2">
                     <Label className="text-primary font-bold">Total Cliente</Label>
@@ -97,11 +97,11 @@ export function MaintenanceForm({ empresaId, lojaId, initialData, onSuccess }: M
             <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-red-50 dark:bg-red-900/10 border-red-100">
                 <div className="space-y-2">
                     <Label>Custo Peça (Pago)</Label>
-                    <Input type="number" {...form.register('custo_pecas')} />
+                    <Input type="number" step="0.01" {...form.register('custo_pecas', { valueAsNumber: true })} />
                 </div>
                 <div className="space-y-2">
                     <Label>Taxa Maquininha</Label>
-                    <Input type="number" {...form.register('taxa_maquina')} />
+                    <Input type="number" step="0.01" {...form.register('taxa_maquina', { valueAsNumber: true })} />
                 </div>
                 <div className="space-y-2">
                     <Label className="text-green-600 font-bold">Lucro Líquido</Label>
