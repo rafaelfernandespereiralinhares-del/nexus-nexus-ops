@@ -7,14 +7,14 @@ export const useMaintenanceServices = (empresaId: string | undefined) => {
         queryKey: ['maintenance', empresaId],
         queryFn: async () => {
             if (!empresaId) return [];
-            const { data, error } = await supabase
-                .from('manutencoes')
+            const { data, error } = await (supabase
+                .from('manutencoes' as any)
                 .select('*')
                 .eq('empresa_id', empresaId)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false }) as any);
 
             if (error) throw error;
-            return data as Manutencao[];
+            return (data ?? []) as Manutencao[];
         },
         enabled: !!empresaId,
     });
@@ -24,7 +24,7 @@ export const useCreateMaintenance = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (newService: NewManutencao) => {
-            const { data, error } = await supabase.from('manutencoes').insert(newService).select().single();
+            const { data, error } = await (supabase.from('manutencoes' as any).insert(newService as any).select().single() as any);
             if (error) throw error;
             return data;
         },
@@ -38,12 +38,11 @@ export const useUpdateMaintenance = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async ({ id, ...data }: UpdateManutencao & { id: string }) => {
-            const { data: updatedData, error } = await supabase.from('manutencoes').update(data).eq('id', id).select().single();
+            const { data: updatedData, error } = await (supabase.from('manutencoes' as any).update(data as any).eq('id', id).select().single() as any);
             if (error) throw error;
             return updatedData;
         },
-        onSuccess: (_, _variables) => {
-            // We can iterate cache keys if needed, but simple invalidation is safer
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['maintenance'] });
         },
     });
@@ -53,7 +52,7 @@ export const useDeleteMaintenance = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (id: string) => {
-            const { error } = await supabase.from('manutencoes').delete().eq('id', id);
+            const { error } = await (supabase.from('manutencoes' as any).delete().eq('id', id) as any);
             if (error) throw error;
         },
         onSuccess: () => {
