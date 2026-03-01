@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,11 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Users, Trophy, Target } from 'lucide-react';
+import { Plus, Users, Trophy, Target, Download, Image } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import html2canvas from 'html2canvas';
 import type { MetaVendedor, Funcionario, Loja } from '../types';
 
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+const fmtShort = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0);
 const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 const ESCALAS = [
@@ -24,9 +27,42 @@ const ESCALAS = [
   { value: 'comercial', label: 'Comercial' },
 ];
 
+const MEDAL = ['🥇', '🥈', '🥉'];
+const BAR_COLORS = [
+  'hsl(var(--primary))',
+  'hsl(var(--primary) / 0.85)',
+  'hsl(var(--primary) / 0.7)',
+  'hsl(var(--primary) / 0.55)',
+  'hsl(var(--primary) / 0.4)',
+  'hsl(var(--muted-foreground) / 0.5)',
+];
+
+interface RankingItem {
+  nome: string;
+  loja: string;
+  meta: number;
+  realizado: number;
+  pct: number;
+}
+
+const RankingTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload as RankingItem;
+  return (
+    <div className="rounded-lg border bg-background p-3 shadow-md text-sm space-y-1">
+      <p className="font-bold">{d.nome}</p>
+      <p className="text-muted-foreground">{d.loja}</p>
+      <p>Meta: {fmt(d.meta)}</p>
+      <p>Realizado: {fmt(d.realizado)}</p>
+      <p className="font-semibold">{d.pct}% atingido</p>
+    </div>
+  );
+};
+
 export function MetasVendedoresTab() {
   const { profile, primaryRole } = useAuth();
   const { toast } = useToast();
+  const rankingRef = useRef<HTMLDivElement>(null);
   const now = new Date();
   const [filterMes, setFilterMes] = useState(String(now.getMonth()));
   const [filterAno, setFilterAno] = useState(String(now.getFullYear()));
@@ -68,11 +104,40 @@ export function MetasVendedoresTab() {
 
   const filtered = filterLoja === 'todas' ? metas : metas.filter(m => m.loja_id === filterLoja);
 
+  // Ranking data - sorted by % achieved descending
+  const rankingData: RankingItem[] = filtered.map(m => {
+    const func = funcionarios.find(f => f.id === m.funcionario_id);
+    const loja = lojas.find(l => l.id === m.loja_id);
+    const meta = Number(m.meta_mensal);
+    const realizado = Number(m.realizado_mensal);
+    return {
+      nome: func?.nome ?? '—',
+      loja: loja?.nome ?? '—',
+      meta,
+      realizado,
+      pct: meta > 0 ? Math.round((realizado / meta) * 100) : 0,
+    };
+  }).sort((a, b) => b.pct - a.pct);
+
   // Group by loja
   const lojaGroups = lojas.filter(l => filterLoja === 'todas' || l.id === filterLoja).map(loja => ({
     loja,
     vendedores: filtered.filter(m => m.loja_id === loja.id),
   })).filter(g => g.vendedores.length > 0);
+
+  // Loja ranking
+  const lojaRankingData = lojas.map(loja => {
+    const vendedoresLoja = metas.filter(m => m.loja_id === loja.id);
+    const totalMeta = vendedoresLoja.reduce((s, m) => s + Number(m.meta_mensal), 0);
+    const totalReal = vendedoresLoja.reduce((s, m) => s + Number(m.realizado_mensal), 0);
+    return {
+      nome: loja.nome,
+      loja: loja.nome,
+      meta: totalMeta,
+      realizado: totalReal,
+      pct: totalMeta > 0 ? Math.round((totalReal / totalMeta) * 100) : 0,
+    };
+  }).filter(l => l.meta > 0).sort((a, b) => b.pct - a.pct);
 
   const handleSave = async () => {
     if (!profile?.empresa_id || !form.funcionario_id || !form.loja_id) {
@@ -82,7 +147,6 @@ export function MetasVendedoresTab() {
     const metaMensal = parseFloat(form.meta_mensal) || 0;
     const qtdUnidades = parseInt(form.qtd_unidades_reais_mes) || 26;
     const metaPorUnidade = metaMensal / qtdUnidades;
-    // Auto-calculate weekly with standard weights
     const pesos = [0.35, 0.25, 0.2, 0.2];
     
     const payload = {
@@ -126,6 +190,15 @@ export function MetasVendedoresTab() {
     else { toast({ title: 'Meta excluída!' }); fetchMetas(); }
   };
 
+  const handleExportPng = async () => {
+    if (!rankingRef.current) return;
+    const canvas = await html2canvas(rankingRef.current, { backgroundColor: null });
+    const link = document.createElement('a');
+    link.download = `ranking-vendedores-${mesStr}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+  };
+
   const totalMetaLoja = (lojaId: string) => filtered.filter(m => m.loja_id === lojaId).reduce((s, m) => s + Number(m.meta_mensal), 0);
   const totalRealizadoLoja = (lojaId: string) => filtered.filter(m => m.loja_id === lojaId).reduce((s, m) => s + Number(m.realizado_mensal), 0);
 
@@ -150,63 +223,157 @@ export function MetasVendedoresTab() {
             {lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 ml-auto"><Plus className="h-4 w-4" /> Nova Meta Vendedor</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Meta Individual – {meses[parseInt(filterMes)]} {filterAno}</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Loja</Label>
-                <Select value={form.loja_id} onValueChange={v => setForm(p => ({ ...p, loja_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>{lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Funcionário (Vendedor)</Label>
-                <Select value={form.funcionario_id} onValueChange={v => setForm(p => ({ ...p, funcionario_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {funcionarios.filter(f => !form.loja_id || f.loja_id === form.loja_id).map(f => (
-                      <SelectItem key={f.id} value={f.id}>{f.nome} – {f.cargo}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-2 ml-auto">
+          {rankingData.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleExportPng} className="gap-2">
+              <Image className="h-4 w-4" /> PNG
+            </Button>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2"><Plus className="h-4 w-4" /> Nova Meta Vendedor</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Meta Individual – {meses[parseInt(filterMes)]} {filterAno}</DialogTitle></DialogHeader>
+              <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>Escala</Label>
-                  <Select value={form.escala} onValueChange={v => setForm(p => ({ ...p, escala: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {ESCALAS.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
-                    </SelectContent>
+                  <Label>Loja</Label>
+                  <Select value={form.loja_id} onValueChange={v => setForm(p => ({ ...p, loja_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>{lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Unidades no Mês</Label>
-                  <Input type="number" value={form.qtd_unidades_reais_mes} onChange={e => setForm(p => ({ ...p, qtd_unidades_reais_mes: e.target.value }))} />
+                  <Label>Funcionário (Vendedor)</Label>
+                  <Select value={form.funcionario_id} onValueChange={v => setForm(p => ({ ...p, funcionario_id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {funcionarios.filter(f => !form.loja_id || f.loja_id === form.loja_id).map(f => (
+                        <SelectItem key={f.id} value={f.id}>{f.nome} – {f.cargo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Escala</Label>
+                    <Select value={form.escala} onValueChange={v => setForm(p => ({ ...p, escala: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ESCALAS.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Unidades no Mês</Label>
+                    <Input type="number" value={form.qtd_unidades_reais_mes} onChange={e => setForm(p => ({ ...p, qtd_unidades_reais_mes: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Meta Mensal (R$)</Label>
+                    <Input type="number" step="0.01" value={form.meta_mensal} onChange={e => setForm(p => ({ ...p, meta_mensal: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Horas Líquidas/Mês</Label>
+                    <Input type="number" step="0.01" value={form.horas_liquidas_mes} onChange={e => setForm(p => ({ ...p, horas_liquidas_mes: e.target.value }))} />
+                  </div>
+                </div>
+                <Button onClick={handleSave} className="w-full">Salvar Meta</Button>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Meta Mensal (R$)</Label>
-                  <Input type="number" step="0.01" value={form.meta_mensal} onChange={e => setForm(p => ({ ...p, meta_mensal: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Horas Líquidas/Mês</Label>
-                  <Input type="number" step="0.01" value={form.horas_liquidas_mes} onChange={e => setForm(p => ({ ...p, horas_liquidas_mes: e.target.value }))} />
-                </div>
-              </div>
-              <Button onClick={handleSave} className="w-full">Salvar Meta</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Summary cards per loja */}
+      {/* Rankings Section */}
+      {filtered.length > 0 && (
+        <div ref={rankingRef} className="space-y-4">
+          {/* Ranking Vendedores */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Trophy className="h-5 w-5 text-warning" />
+                Ranking Vendedores – {meses[parseInt(filterMes)]} {filterAno}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Chart */}
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={rankingData} layout="vertical" margin={{ left: 10, right: 40, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
+                      <YAxis type="category" dataKey="nome" width={100} tick={{ fontSize: 12 }} />
+                      <Tooltip content={<RankingTooltip />} />
+                      <Bar dataKey="pct" radius={[0, 6, 6, 0]} maxBarSize={32}>
+                        {rankingData.map((_, i) => (
+                          <Cell key={i} fill={BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)]} />
+                        ))}
+                        <LabelList dataKey="pct" position="right" formatter={(v: number) => `${v}%`} style={{ fontSize: 12, fontWeight: 600 }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Podium List */}
+                <div className="space-y-2">
+                  {rankingData.map((item, i) => (
+                    <div key={item.nome} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/30 transition-colors">
+                      <span className="text-2xl w-8 text-center">{i < 3 ? MEDAL[i] : `${i + 1}º`}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{item.nome}</p>
+                        <p className="text-xs text-muted-foreground">{item.loja}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">{fmt(item.realizado)}</p>
+                        <p className="text-xs text-muted-foreground">de {fmt(item.meta)}</p>
+                      </div>
+                      <Badge variant={item.pct >= 100 ? 'default' : item.pct >= 70 ? 'secondary' : 'destructive'} className="min-w-[52px] justify-center">
+                        {item.pct}%
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Ranking Lojas */}
+          {lojaRankingData.length > 1 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Target className="h-5 w-5 text-primary" />
+                  Ranking por Loja
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={lojaRankingData} margin={{ left: 0, right: 30, top: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="nome" tick={{ fontSize: 12 }} />
+                      <YAxis tickFormatter={v => fmtShort(v)} />
+                      <Tooltip content={<RankingTooltip />} />
+                      <Bar dataKey="meta" fill="hsl(var(--muted-foreground) / 0.2)" radius={[4, 4, 0, 0]} name="Meta" maxBarSize={40} />
+                      <Bar dataKey="realizado" radius={[4, 4, 0, 0]} name="Realizado" maxBarSize={40}>
+                        {lojaRankingData.map((_, i) => (
+                          <Cell key={i} fill={BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)]} />
+                        ))}
+                        <LabelList dataKey="pct" position="top" formatter={(v: number) => `${v}%`} style={{ fontSize: 11, fontWeight: 600 }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Detail tables per loja */}
       {lojaGroups.map(({ loja, vendedores }) => {
         const totalMeta = totalMetaLoja(loja.id);
         const totalReal = totalRealizadoLoja(loja.id);
@@ -234,6 +401,7 @@ export function MetasVendedoresTab() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>#</TableHead>
                     <TableHead>Vendedor</TableHead>
                     <TableHead>Escala</TableHead>
                     <TableHead className="text-right">Meta Mensal</TableHead>
@@ -245,38 +413,45 @@ export function MetasVendedoresTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {vendedores.map(v => {
-                    const func = funcionarios.find(f => f.id === v.funcionario_id);
-                    const realPct = Number(v.meta_mensal) > 0 ? Math.round((Number(v.realizado_mensal) / Number(v.meta_mensal)) * 100) : 0;
-                    const escLabel = ESCALAS.find(e => e.value === v.escala)?.label || v.escala;
-                    return (
-                      <TableRow key={v.id}>
-                        <TableCell className="font-medium">{func?.nome ?? '—'}</TableCell>
-                        <TableCell><Badge variant="outline" className="text-xs">{escLabel}</Badge></TableCell>
-                        <TableCell className="text-right">{fmt(Number(v.meta_mensal))}</TableCell>
-                        <TableCell className="text-right">{fmt(Number(v.meta_por_unidade))}</TableCell>
-                        <TableCell className="text-right">{fmt(Number(v.realizado_mensal))}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant={realPct >= 100 ? 'default' : realPct >= 70 ? 'secondary' : 'destructive'}>
-                            {realPct}%
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1 justify-center flex-wrap">
-                            <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_30).toFixed(0)}→30</Badge>
-                            <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_50).toFixed(0)}→50</Badge>
-                            <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_80).toFixed(0)}→80</Badge>
-                            <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_120).toFixed(0)}→120</Badge>
-                          </div>
-                        </TableCell>
-                        {primaryRole === 'ADMIN' && (
-                          <TableCell>
-                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(v.id)}>Excluir</Button>
+                  {vendedores
+                    .sort((a, b) => {
+                      const pA = Number(a.meta_mensal) > 0 ? Number(a.realizado_mensal) / Number(a.meta_mensal) : 0;
+                      const pB = Number(b.meta_mensal) > 0 ? Number(b.realizado_mensal) / Number(b.meta_mensal) : 0;
+                      return pB - pA;
+                    })
+                    .map((v, idx) => {
+                      const func = funcionarios.find(f => f.id === v.funcionario_id);
+                      const realPct = Number(v.meta_mensal) > 0 ? Math.round((Number(v.realizado_mensal) / Number(v.meta_mensal)) * 100) : 0;
+                      const escLabel = ESCALAS.find(e => e.value === v.escala)?.label || v.escala;
+                      return (
+                        <TableRow key={v.id}>
+                          <TableCell className="text-center text-lg">{idx < 3 ? MEDAL[idx] : `${idx + 1}º`}</TableCell>
+                          <TableCell className="font-medium">{func?.nome ?? '—'}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{escLabel}</Badge></TableCell>
+                          <TableCell className="text-right">{fmt(Number(v.meta_mensal))}</TableCell>
+                          <TableCell className="text-right">{fmt(Number(v.meta_por_unidade))}</TableCell>
+                          <TableCell className="text-right">{fmt(Number(v.realizado_mensal))}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant={realPct >= 100 ? 'default' : realPct >= 70 ? 'secondary' : 'destructive'}>
+                              {realPct}%
+                            </Badge>
                           </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
+                          <TableCell>
+                            <div className="flex gap-1 justify-center flex-wrap">
+                              <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_30).toFixed(0)}→30</Badge>
+                              <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_50).toFixed(0)}→50</Badge>
+                              <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_80).toFixed(0)}→80</Badge>
+                              <Badge variant="outline" className="text-xs">R${Number(v.faixa_premio_120).toFixed(0)}→120</Badge>
+                            </div>
+                          </TableCell>
+                          {primaryRole === 'ADMIN' && (
+                            <TableCell>
+                              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(v.id)}>Excluir</Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -284,7 +459,7 @@ export function MetasVendedoresTab() {
         );
       })}
 
-      {lojaGroups.length === 0 && (
+      {lojaGroups.length === 0 && filtered.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-8">Nenhuma meta de vendedor cadastrada para {meses[parseInt(filterMes)]} {filterAno}</p>
       )}
     </div>
