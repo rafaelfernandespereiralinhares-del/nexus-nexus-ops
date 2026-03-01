@@ -47,7 +47,7 @@ export function MaintenanceForm({ empresaId, lojaId, initialData, onSuccess }: M
 
     const onSubmit = (data: MaintenanceFormValues) => {
         // Inject calculated total and profit if backend doesn't do it (backend computed columns are read-only usually, but let's send total)
-        const payload = { ...data, valor_total: total, lucro_liquido: profit };
+        const payload = { ...data, valor_total: total, lucro_liquido: profit, empresa_id: empresaId, loja_id: lojaId } as any;
 
         if (isEditing && initialData) {
             updateMutation.mutate({ id: initialData.id, ...payload }, {

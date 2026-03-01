@@ -115,9 +115,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({ user_id: userId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("create-user error:", e);
-    const msg = e.message?.includes("already been registered")
+    const msg = (e instanceof Error && e.message?.includes("already been registered"))
       ? "Este email já está cadastrado"
       : "Erro ao criar usuário. Tente novamente.";
     return new Response(JSON.stringify({ error: msg }), {
