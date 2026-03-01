@@ -831,6 +831,130 @@ export type Database = {
           },
         ]
       }
+      metas_vendedores: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          escala: string
+          faixa_premio_120: number
+          faixa_premio_30: number
+          faixa_premio_50: number
+          faixa_premio_80: number
+          funcionario_id: string
+          horas_liquidas_mes: number
+          id: string
+          loja_id: string
+          mes: string
+          meta_mensal: number
+          meta_por_unidade: number
+          meta_semanal_s1: number
+          meta_semanal_s2: number
+          meta_semanal_s3: number
+          meta_semanal_s4: number
+          min_mensal: number
+          min_semanal_s1: number
+          min_semanal_s2: number
+          min_semanal_s3: number
+          min_semanal_s4: number
+          qtd_unidades_reais_mes: number
+          realizado_mensal: number
+          realizado_semanal_s1: number
+          realizado_semanal_s2: number
+          realizado_semanal_s3: number
+          realizado_semanal_s4: number
+          unidade_de_trabalho: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          escala?: string
+          faixa_premio_120?: number
+          faixa_premio_30?: number
+          faixa_premio_50?: number
+          faixa_premio_80?: number
+          funcionario_id: string
+          horas_liquidas_mes?: number
+          id?: string
+          loja_id: string
+          mes: string
+          meta_mensal?: number
+          meta_por_unidade?: number
+          meta_semanal_s1?: number
+          meta_semanal_s2?: number
+          meta_semanal_s3?: number
+          meta_semanal_s4?: number
+          min_mensal?: number
+          min_semanal_s1?: number
+          min_semanal_s2?: number
+          min_semanal_s3?: number
+          min_semanal_s4?: number
+          qtd_unidades_reais_mes?: number
+          realizado_mensal?: number
+          realizado_semanal_s1?: number
+          realizado_semanal_s2?: number
+          realizado_semanal_s3?: number
+          realizado_semanal_s4?: number
+          unidade_de_trabalho?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          escala?: string
+          faixa_premio_120?: number
+          faixa_premio_30?: number
+          faixa_premio_50?: number
+          faixa_premio_80?: number
+          funcionario_id?: string
+          horas_liquidas_mes?: number
+          id?: string
+          loja_id?: string
+          mes?: string
+          meta_mensal?: number
+          meta_por_unidade?: number
+          meta_semanal_s1?: number
+          meta_semanal_s2?: number
+          meta_semanal_s3?: number
+          meta_semanal_s4?: number
+          min_mensal?: number
+          min_semanal_s1?: number
+          min_semanal_s2?: number
+          min_semanal_s3?: number
+          min_semanal_s4?: number
+          qtd_unidades_reais_mes?: number
+          realizado_mensal?: number
+          realizado_semanal_s1?: number
+          realizado_semanal_s2?: number
+          realizado_semanal_s3?: number
+          realizado_semanal_s4?: number
+          unidade_de_trabalho?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_vendedores_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metas_vendedores_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metas_vendedores_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planos: {
         Row: {
           created_at: string
@@ -857,6 +981,86 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      premiacao_config: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          mes: string
+          multiplicador_meta_final: number
+          pesos_semana_json: Json
+          premio_diario_faixa1_mult: number
+          premio_diario_faixa1_valor: number
+          premio_diario_faixa2_mult: number
+          premio_diario_faixa2_valor: number
+          premio_diario_faixa3_mult: number
+          premio_diario_faixa3_valor: number
+          premio_diario_faixa4_mult: number
+          premio_diario_faixa4_valor: number
+          premio_mensal_loja_min_participacao: number
+          premio_mensal_loja_valor: number
+          premio_mensal_vendedor_min_participacao: number
+          premio_mensal_vendedor_valor: number
+          premio_semanal_min_participacao: number
+          premio_semanal_valor: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          id?: string
+          mes: string
+          multiplicador_meta_final?: number
+          pesos_semana_json?: Json
+          premio_diario_faixa1_mult?: number
+          premio_diario_faixa1_valor?: number
+          premio_diario_faixa2_mult?: number
+          premio_diario_faixa2_valor?: number
+          premio_diario_faixa3_mult?: number
+          premio_diario_faixa3_valor?: number
+          premio_diario_faixa4_mult?: number
+          premio_diario_faixa4_valor?: number
+          premio_mensal_loja_min_participacao?: number
+          premio_mensal_loja_valor?: number
+          premio_mensal_vendedor_min_participacao?: number
+          premio_mensal_vendedor_valor?: number
+          premio_semanal_min_participacao?: number
+          premio_semanal_valor?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          mes?: string
+          multiplicador_meta_final?: number
+          pesos_semana_json?: Json
+          premio_diario_faixa1_mult?: number
+          premio_diario_faixa1_valor?: number
+          premio_diario_faixa2_mult?: number
+          premio_diario_faixa2_valor?: number
+          premio_diario_faixa3_mult?: number
+          premio_diario_faixa3_valor?: number
+          premio_diario_faixa4_mult?: number
+          premio_diario_faixa4_valor?: number
+          premio_mensal_loja_min_participacao?: number
+          premio_mensal_loja_valor?: number
+          premio_mensal_vendedor_min_participacao?: number
+          premio_mensal_vendedor_valor?: number
+          premio_semanal_min_participacao?: number
+          premio_semanal_valor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "premiacao_config_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
