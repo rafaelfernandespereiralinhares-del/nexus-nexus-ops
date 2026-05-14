@@ -1145,6 +1145,48 @@ export type Database = {
           },
         ]
       }
+      saidas_diarias: {
+        Row: {
+          categoria: string
+          created_at: string
+          created_by: string | null
+          data: string
+          descricao: string
+          empresa_id: string
+          id: string
+          loja_id: string
+          observacao: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao: string
+          empresa_id: string
+          id?: string
+          loja_id: string
+          observacao?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string
+          empresa_id?: string
+          id?: string
+          loja_id?: string
+          observacao?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       servicos_funcionario: {
         Row: {
           comissao: number
