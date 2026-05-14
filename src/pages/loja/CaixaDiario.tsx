@@ -102,8 +102,11 @@ export default function CaixaDiario() {
   };
 
   // LOJA save/close
+  const [saidasDetalhadas, setSaidasDetalhadas] = useState(0);
   const totalEntradas = n(form.dinheiro) + n(form.pix) + n(form.cartao);
-  const saldoFinal = n(form.saldo_inicial) + totalEntradas + n(form.suprimentos) - n(form.sangrias) - n(form.saidas);
+  const saidasEfetivas = saidasDetalhadas > 0 ? saidasDetalhadas : n(form.saidas);
+  const saldoFinal = n(form.saldo_inicial) + totalEntradas + n(form.suprimentos) - n(form.sangrias) - saidasEfetivas;
+  const saldoCaixaDia = n(form.saldo_inicial) + n(form.dinheiro) + n(form.suprimentos) - n(form.sangrias);
   const isLocked = status !== 'ABERTO' && status !== 'REABERTO';
 
   const handleSave = async (fechar = false) => {
