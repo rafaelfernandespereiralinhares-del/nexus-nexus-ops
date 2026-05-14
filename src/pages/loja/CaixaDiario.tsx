@@ -115,7 +115,7 @@ export default function CaixaDiario() {
     const payload = {
       empresa_id: profile.empresa_id, loja_id: profile.loja_id, data: hoje,
       saldo_inicial: n(form.saldo_inicial), dinheiro: n(form.dinheiro), pix: n(form.pix), cartao: n(form.cartao),
-      sangrias: n(form.sangrias), suprimentos: n(form.suprimentos), saidas: n(form.saidas),
+      sangrias: n(form.sangrias), suprimentos: n(form.suprimentos), saidas: saidasEfetivas,
       valor_caixa_declarado: n(form.valor_caixa_declarado) || null,
       status: fechar ? 'FECHADO_PENDENTE_CONCILIACAO' as const : 'ABERTO' as const,
       responsavel_usuario_id: profile.user_id, responsavel_nome_snapshot: profile.nome,
