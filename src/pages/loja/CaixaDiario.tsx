@@ -12,6 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Save, Lock, Pencil, Trash2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import SaidasDiariasTab from '@/features/saidas-diarias/SaidasDiariasTab';
 
 interface Loja { id: string; nome: string; }
 interface Fechamento {
@@ -100,8 +102,11 @@ export default function CaixaDiario() {
   };
 
   // LOJA save/close
+  const [saidasDetalhadas, setSaidasDetalhadas] = useState(0);
   const totalEntradas = n(form.dinheiro) + n(form.pix) + n(form.cartao);
-  const saldoFinal = n(form.saldo_inicial) + totalEntradas + n(form.suprimentos) - n(form.sangrias) - n(form.saidas);
+  const saidasEfetivas = saidasDetalhadas > 0 ? saidasDetalhadas : n(form.saidas);
+  const saldoFinal = n(form.saldo_inicial) + totalEntradas + n(form.suprimentos) - n(form.sangrias) - saidasEfetivas;
+  const saldoCaixaDia = n(form.saldo_inicial) + n(form.dinheiro) + n(form.suprimentos) - n(form.sangrias);
   const isLocked = status !== 'ABERTO' && status !== 'REABERTO';
 
   const handleSave = async (fechar = false) => {
@@ -110,7 +115,7 @@ export default function CaixaDiario() {
     const payload = {
       empresa_id: profile.empresa_id, loja_id: profile.loja_id, data: hoje,
       saldo_inicial: n(form.saldo_inicial), dinheiro: n(form.dinheiro), pix: n(form.pix), cartao: n(form.cartao),
-      sangrias: n(form.sangrias), suprimentos: n(form.suprimentos), saidas: n(form.saidas),
+      sangrias: n(form.sangrias), suprimentos: n(form.suprimentos), saidas: saidasEfetivas,
       valor_caixa_declarado: n(form.valor_caixa_declarado) || null,
       status: fechar ? 'FECHADO_PENDENTE_CONCILIACAO' as const : 'ABERTO' as const,
       responsavel_usuario_id: profile.user_id, responsavel_nome_snapshot: profile.nome,
@@ -236,92 +241,122 @@ export default function CaixaDiario() {
           <h1 className="font-display text-2xl font-bold text-foreground">Caixa Diário</h1>
           <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Lançamento do Dia {isLocked && <Lock className="h-4 w-4 text-warning" />}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              {fields.map(f => (
-                <div key={f.key} className="space-y-1.5">
-                  <Label htmlFor={f.key}>{f.label}</Label>
-                  <Input id={f.key} type="number" step="0.01"
-                    value={form[f.key as keyof typeof form]}
-                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                    disabled={isLocked} placeholder="0,00" />
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <Card className="bg-muted/50"><CardContent className="py-4">
-                <p className="text-sm text-muted-foreground">Total Entradas</p>
-                <p className="text-xl font-bold text-foreground">{fmt(totalEntradas)}</p>
-              </CardContent></Card>
-              <Card className="bg-muted/50"><CardContent className="py-4">
-                <p className="text-sm text-muted-foreground">Saldo Final</p>
-                <p className="text-xl font-bold text-foreground">{fmt(saldoFinal)}</p>
-              </CardContent></Card>
-            </div>
-            {!isLocked && (
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" className="gap-2"><Save className="h-4 w-4" /> Salvar</Button>
-                <Button onClick={() => handleSave(true)} disabled={saving} className="gap-2"><Lock className="h-4 w-4" /> Fechar Caixa</Button>
-                {fechamentoId && (
-                  <Button
-                    onClick={() => { setDeletingId(fechamentoId); setDeleteDialogOpen(true); }}
-                    disabled={saving}
-                    variant="destructive"
-                    className="gap-2 ml-auto"
-                  >
-                    <Trash2 className="h-4 w-4" /> Excluir Lançamento
-                  </Button>
-                )}
-              </div>
-            )}
 
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação removerá o lançamento do dia. Você poderá criar um novo em seguida.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={async () => {
-                      if (!deletingId) return;
-                      setDeleting(true);
-                      const { error } = await supabase.from('fechamentos')
-                        .update({ deleted_at: new Date().toISOString() } as any).eq('id', deletingId);
-                      if (error) toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
-                      else {
-                        toast({ title: 'Lançamento excluído!' });
-                        setFechamentoId(null);
-                        setStatus('ABERTO');
-                        setForm({
-                          saldo_inicial: '', dinheiro: '', pix: '', cartao: '',
-                          sangrias: '', suprimentos: '', saidas: '', valor_caixa_declarado: ''
-                        });
-                      }
-                      setDeleting(false);
-                      setDeleteDialogOpen(false);
-                      setDeletingId(null);
-                    }}
-                    disabled={deleting}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {deleting ? 'Excluindo...' : 'Sim, excluir'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            {isLocked && <p className="mt-4 text-sm text-warning">Caixa fechado. Somente o financeiro pode reabrir.</p>}
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="caixa" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="caixa">Caixa</TabsTrigger>
+            <TabsTrigger value="saidas">Saídas Diárias</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="caixa">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Lançamento do Dia {isLocked && <Lock className="h-4 w-4 text-warning" />}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {fields.map(f => {
+                    const isSaidasField = f.key === 'saidas';
+                    const disabled = isLocked || (isSaidasField && saidasDetalhadas > 0);
+                    return (
+                      <div key={f.key} className="space-y-1.5">
+                        <Label htmlFor={f.key}>
+                          {f.label}
+                          {isSaidasField && saidasDetalhadas > 0 && (
+                            <span className="ml-2 text-xs text-muted-foreground">(auto da aba Saídas)</span>
+                          )}
+                        </Label>
+                        <Input id={f.key} type="number" step="0.01"
+                          value={isSaidasField && saidasDetalhadas > 0 ? saidasDetalhadas.toFixed(2) : form[f.key as keyof typeof form]}
+                          onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          disabled={disabled} placeholder="0,00" />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <Card className="bg-muted/50"><CardContent className="py-4">
+                    <p className="text-sm text-muted-foreground">Total Entradas</p>
+                    <p className="text-xl font-bold text-foreground">{fmt(totalEntradas)}</p>
+                  </CardContent></Card>
+                  <Card className="bg-muted/50"><CardContent className="py-4">
+                    <p className="text-sm text-muted-foreground">Saldo Final</p>
+                    <p className="text-xl font-bold text-foreground">{fmt(saldoFinal)}</p>
+                  </CardContent></Card>
+                </div>
+                {!isLocked && (
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" className="gap-2"><Save className="h-4 w-4" /> Salvar</Button>
+                    <Button onClick={() => handleSave(true)} disabled={saving} className="gap-2"><Lock className="h-4 w-4" /> Fechar Caixa</Button>
+                    {fechamentoId && (
+                      <Button
+                        onClick={() => { setDeletingId(fechamentoId); setDeleteDialogOpen(true); }}
+                        disabled={saving} variant="destructive" className="gap-2 ml-auto">
+                        <Trash2 className="h-4 w-4" /> Excluir Lançamento
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {isLocked && <p className="mt-4 text-sm text-warning">Caixa fechado. Somente o financeiro pode reabrir.</p>}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="saidas">
+            {profile?.loja_id && profile?.empresa_id ? (
+              <SaidasDiariasTab
+                lojaId={profile.loja_id}
+                empresaId={profile.empresa_id}
+                data={hoje}
+                saldoCaixaDia={saldoCaixaDia}
+                onTotalChange={setSaidasDetalhadas}
+                readonly={isLocked}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Carregando...</p>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação removerá o lançamento do dia. Você poderá criar um novo em seguida.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!deletingId) return;
+                  setDeleting(true);
+                  const { error } = await supabase.from('fechamentos')
+                    .update({ deleted_at: new Date().toISOString() } as any).eq('id', deletingId);
+                  if (error) toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+                  else {
+                    toast({ title: 'Lançamento excluído!' });
+                    setFechamentoId(null);
+                    setStatus('ABERTO');
+                    setForm({
+                      saldo_inicial: '', dinheiro: '', pix: '', cartao: '',
+                      sangrias: '', suprimentos: '', saidas: '', valor_caixa_declarado: ''
+                    });
+                  }
+                  setDeleting(false);
+                  setDeleteDialogOpen(false);
+                  setDeletingId(null);
+                }}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {deleting ? 'Excluindo...' : 'Sim, excluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
