@@ -265,11 +265,60 @@ export default function CaixaDiario() {
               </CardContent></Card>
             </div>
             {!isLocked && (
-              <div className="mt-6 flex gap-3">
+              <div className="mt-6 flex flex-wrap gap-3">
                 <Button onClick={() => handleSave(false)} disabled={saving} variant="outline" className="gap-2"><Save className="h-4 w-4" /> Salvar</Button>
                 <Button onClick={() => handleSave(true)} disabled={saving} className="gap-2"><Lock className="h-4 w-4" /> Fechar Caixa</Button>
+                {fechamentoId && (
+                  <Button
+                    onClick={() => { setDeletingId(fechamentoId); setDeleteDialogOpen(true); }}
+                    disabled={saving}
+                    variant="destructive"
+                    className="gap-2 ml-auto"
+                  >
+                    <Trash2 className="h-4 w-4" /> Excluir Lançamento
+                  </Button>
+                )}
               </div>
             )}
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação removerá o lançamento do dia. Você poderá criar um novo em seguida.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      if (!deletingId) return;
+                      setDeleting(true);
+                      const { error } = await supabase.from('fechamentos')
+                        .update({ deleted_at: new Date().toISOString() } as any).eq('id', deletingId);
+                      if (error) toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+                      else {
+                        toast({ title: 'Lançamento excluído!' });
+                        setFechamentoId(null);
+                        setStatus('ABERTO');
+                        setForm({
+                          saldo_inicial: '', dinheiro: '', pix: '', cartao: '',
+                          sangrias: '', suprimentos: '', saidas: '', valor_caixa_declarado: ''
+                        });
+                      }
+                      setDeleting(false);
+                      setDeleteDialogOpen(false);
+                      setDeletingId(null);
+                    }}
+                    disabled={deleting}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleting ? 'Excluindo...' : 'Sim, excluir'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {isLocked && <p className="mt-4 text-sm text-warning">Caixa fechado. Somente o financeiro pode reabrir.</p>}
           </CardContent>
         </Card>
