@@ -1256,6 +1256,48 @@ export type Database = {
         }
         Relationships: []
       }
+      vales_funcionarios: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: string
+          descricao: string | null
+          empresa_id: string
+          funcionario_id: string | null
+          funcionario_nome: string
+          id: string
+          loja_id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string | null
+          empresa_id: string
+          funcionario_id?: string | null
+          funcionario_nome: string
+          id?: string
+          loja_id: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string | null
+          empresa_id?: string
+          funcionario_id?: string | null
+          funcionario_nome?: string
+          id?: string
+          loja_id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
