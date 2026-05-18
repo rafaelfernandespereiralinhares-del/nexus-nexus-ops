@@ -12,6 +12,7 @@ export default function MaintenancePage() {
     const { profile } = useAuth();
     const empresaId = profile?.empresa_id ?? "";
     const lojaId = profile?.loja_id ?? "";
+    const [date, setDate] = useState<Date>(new Date());
 
     if (!empresaId || !lojaId) {
         return (
@@ -20,7 +21,6 @@ export default function MaintenancePage() {
             </div>
         );
     }
-    const [date, setDate] = useState<Date>(new Date());
 
     const handleImport = async (data: any[]) => {
         await importService.importManutencoes(data, empresaId, lojaId);
