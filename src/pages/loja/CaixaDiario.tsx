@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Save, Lock, Pencil, Trash2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import SaidasDiariasTab from '@/features/saidas-diarias/SaidasDiariasTab';
+import ValesFuncionariosTab from '@/features/vales-funcionarios/ValesFuncionariosTab';
 
 interface Loja { id: string; nome: string; }
 interface Fechamento {
