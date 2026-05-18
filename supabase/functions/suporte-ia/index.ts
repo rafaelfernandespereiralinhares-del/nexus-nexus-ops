@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,35 +17,34 @@ O NEXUS é um sistema multi-empresa para gestão de lojas físicas com os seguin
 - DIRETORIA: Vê Dashboard Executivo, Relatório IA e Planejamento DRE.
 - ADMIN: Acesso total. Gerencia Empresas, Lojas, Usuários e todas as demais funcionalidades.
 
-**Módulos do sistema:**
-- **Caixa Diário**: Lançamento diário com Saldo Inicial, Dinheiro, PIX, Cartão, Sangrias, Suprimentos e Saídas. O total de entradas é calculado automaticamente. Após fechar, o status muda para "Fechado" e só o FINANCEIRO/ADMIN pode reabrir.
-- **Conciliação Alterdata**: Upload de CSV/Excel com dados do PDV, comparação automática com o caixa, geração de status OK/DIVERGÊNCIA/ANÁLISE.
-- **Metas**: Cadastro de meta diária e mensal por loja/mês. O dashboard mostra o % atingido.
-- **Metas Semanais**: Planejamento semanal com folha, contas a pagar e margem de segurança.
-- **Contas a Pagar/Receber**: CRUD completo com status ABERTO/PAGO/ATRASADO.
-- **Custo Casa**: Controle de custos operacionais da empresa (retiradas, despesas gerais).
-- **Máquina Amarela**: Registro de transações por tipo de pagamento com taxa e valor líquido.
-- **Auditoria**: Registro de ocorrências com status ABERTA/EM_ANÁLISE/RESOLVIDA.
-- **Funcionários**: Cadastro com salário, passagem, ajuda de custo, vínculo (CLT/MEI/PJ/Estagiário).
-- **Campanhas de Vendas**: Criação de campanhas por período com meta de quantidade.
-- **Folha & DRE**: Cálculo de folha e demonstrativo de resultados.
-- **Dashboard Executivo (Diretoria)**: Faturamento total, inadimplência, ranking de lojas, semáforo de performance, evolução mensal.
-- **Relatório IA**: Gera relatório automático com análise de desempenho usando Inteligência Artificial.
-- **Planejamento DRE**: Projeções financeiras mensais por categoria.
-- **Admin - Empresas/Lojas/Usuários**: Cadastro e gerenciamento de toda a estrutura.
-
-**Dicas de uso:**
-- Para instalar como app no celular: abra no Chrome, toque nos 3 pontos e selecione "Adicionar à tela inicial".
-- O menu inferior no mobile mostra os 4 primeiros atalhos. Toque em "Mais" para ver todos os módulos.
-- O caixa deve ser aberto no início do dia e fechado ao final. Após fechado, aguarde a conciliação do FINANCEIRO.
-- Divergências na conciliação ficam marcadas em vermelho no semáforo das lojas.
-
 Responda perguntas sobre como usar o sistema, navegação, funcionalidades e resolução de problemas. Seja direto e prático. Se não souber algo específico sobre o negócio do usuário, oriente-o a entrar em contato com o administrador do sistema.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData, error: authErr } = await supabase.auth.getClaims(token);
+    if (authErr || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Não autorizado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
@@ -57,10 +57,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages,
-        ],
+        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
         stream: true,
       }),
     });

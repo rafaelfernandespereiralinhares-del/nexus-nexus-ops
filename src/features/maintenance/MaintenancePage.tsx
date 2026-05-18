@@ -6,12 +6,21 @@ import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import { Separator } from "@/components/ui/separator";
 import { DataImportButton } from "@/components/DataImportButton";
 import { importService } from "@/services/importService";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function MaintenancePage() {
-    // TODO: Retrieve from Auth Context
-    const empresaId = "00000000-0000-0000-0000-000000000000";
-    const lojaId = "00000000-0000-0000-0000-000000000000";
+    const { profile } = useAuth();
+    const empresaId = profile?.empresa_id ?? "";
+    const lojaId = profile?.loja_id ?? "";
     const [date, setDate] = useState<Date>(new Date());
+
+    if (!empresaId || !lojaId) {
+        return (
+            <div className="container mx-auto p-6">
+                <p className="text-muted-foreground">Carregando contexto do usuário...</p>
+            </div>
+        );
+    }
 
     const handleImport = async (data: any[]) => {
         await importService.importManutencoes(data, empresaId, lojaId);
