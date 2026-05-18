@@ -53,6 +53,7 @@ export default function CaixaDiario() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [fechamentos, setFechamentos] = useState<Fechamento[]>([]);
   const [filterLoja, setFilterLoja] = useState('todas');
+  const [filterMes, setFilterMes] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
   // New entry dialog
   const [dialogOpen, setDialogOpen] = useState(false);
