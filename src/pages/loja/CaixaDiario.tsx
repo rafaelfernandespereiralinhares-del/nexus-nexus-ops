@@ -364,7 +364,18 @@ export default function CaixaDiario() {
   }
 
   // ADMIN/FINANCEIRO/DIRETORIA listing view
-  const filteredFechamentos = filterLoja === 'todas' ? fechamentos : fechamentos.filter(f => f.loja_id === filterLoja);
+  const filteredFechamentos = fechamentos.filter(f =>
+    (filterLoja === 'todas' || f.loja_id === filterLoja) &&
+    f.data.startsWith(filterMes)
+  );
+
+  // Saldo automático do período (créditos - débitos)
+  const totalEntradasMes = filteredFechamentos.reduce((s, f) => s + Number(f.dinheiro) + Number(f.pix) + Number(f.cartao) + Number(f.suprimentos), 0);
+  const totalSaidasMes = filteredFechamentos.reduce((s, f) => s + Number(f.saidas) + Number(f.sangrias), 0);
+  const totalSaldoInicialMes = filteredFechamentos.reduce((s, f) => s + Number(f.saldo_inicial), 0);
+  const sobrandoCaixaMes = totalSaldoInicialMes + totalEntradasMes - totalSaidasMes;
+
+  const lojaIdParaVales = filterLoja !== 'todas' ? filterLoja : (lojas[0]?.id ?? '');
 
   return (
     <div className="space-y-6">
