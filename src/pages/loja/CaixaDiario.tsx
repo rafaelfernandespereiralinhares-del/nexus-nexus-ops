@@ -321,6 +321,19 @@ export default function CaixaDiario() {
               <p className="text-sm text-muted-foreground">Carregando...</p>
             )}
           </TabsContent>
+
+          <TabsContent value="vales">
+            {profile?.loja_id && profile?.empresa_id ? (
+              <ValesFuncionariosTab
+                lojaId={profile.loja_id}
+                empresaId={profile.empresa_id}
+                mes={hoje.slice(0, 7)}
+                readonly={isLocked}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Carregando...</p>
+            )}
+          </TabsContent>
         </Tabs>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
