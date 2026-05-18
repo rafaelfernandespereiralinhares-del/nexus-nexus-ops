@@ -552,17 +552,30 @@ export default function CaixaDiario() {
         </TabsContent>
 
         <TabsContent value="vales">
-          {filterLoja === 'todas' ? (
+          {profile?.empresa_id && lojaIdParaVales ? (
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-1.5 max-w-sm">
+                    <Label>Loja para lançamento de vales</Label>
+                    <Select value={lojaIdParaVales} onValueChange={setFilterLoja}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+              <ValesFuncionariosTab
+                lojaId={lojaIdParaVales}
+                empresaId={profile.empresa_id}
+                mes={filterMes}
+              />
+            </div>
+          ) : (
             <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Selecione uma loja específica no filtro acima para gerenciar os vales.
+              Nenhuma loja disponível.
             </CardContent></Card>
-          ) : profile?.empresa_id ? (
-            <ValesFuncionariosTab
-              lojaId={filterLoja}
-              empresaId={profile.empresa_id}
-              mes={filterMes}
-            />
-          ) : null}
+          )}
         </TabsContent>
       </Tabs>
 
