@@ -328,7 +328,6 @@ export default function CaixaDiario() {
                 lojaId={profile.loja_id}
                 empresaId={profile.empresa_id}
                 mes={hoje.slice(0, 7)}
-                readonly={isLocked}
               />
             ) : (
               <p className="text-sm text-muted-foreground">Carregando...</p>
