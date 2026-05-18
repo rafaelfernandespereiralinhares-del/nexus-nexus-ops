@@ -192,22 +192,27 @@ export const importService = {
     },
 
     async importUsuarios(data: any[]) {
-        // Note: Creating users usually requires calling Auth API which might be rate limited or restricted on client side.
-        // We will call the create-user function for each row.
-        const promises = data.map(item =>
-            supabase.functions.invoke('create-user', {
+        // Reject rows without an explicit, sufficiently strong password — no weak fallback.
+        const promises = data.map((item, idx) => {
+            const senha = item['Senha'];
+            if (!senha || typeof senha !== 'string' || senha.length < 8) {
+                return Promise.resolve({
+                    error: new Error(`Linha ${idx + 2}: coluna "Senha" obrigatória (mínimo 8 caracteres)`),
+                });
+            }
+            return supabase.functions.invoke('create-user', {
                 body: {
                     email: item['Email'],
-                    password: item['Senha'] || '123456', // Default password if missing
+                    password: senha,
                     nome: item['Nome'],
                     empresa_id: item['Empresa ID'] || null,
                     loja_id: item['Loja ID'] || null,
                     role: item['Perfil'] || 'LOJA'
                 }
-            })
-        );
+            });
+        });
         const results = await Promise.all(promises);
         const errors = results.filter(r => r.error).map(r => r.error);
-        if (errors.length > 0) throw new Error(`${errors.length} usuários falharam. Verifique os logs.`);
+        if (errors.length > 0) throw new Error(`${errors.length} usuários falharam: ${errors.map((e: any) => e.message || e).join('; ')}`);
     }
 };
