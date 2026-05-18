@@ -417,93 +417,141 @@ export default function CaixaDiario() {
         </Dialog>
       </div>
 
-      {/* Filter */}
-      <Select value={filterLoja} onValueChange={setFilterLoja}>
-        <SelectTrigger className="w-[250px]"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todas">Todas as lojas</SelectItem>
-          {lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Loja</Label>
+          <Select value={filterLoja} onValueChange={setFilterLoja}>
+            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as lojas</SelectItem>
+              {lojas.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Mês</Label>
+          <Input type="month" className="w-[180px]" value={filterMes} onChange={e => setFilterMes(e.target.value)} />
+        </div>
+      </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Loja</TableHead>
-                <TableHead className="text-right">Dinheiro</TableHead>
-                <TableHead className="text-right">Pix</TableHead>
-                <TableHead className="text-right">Cartão</TableHead>
-                <TableHead className="text-right">Saídas</TableHead>
-                <TableHead className="text-right text-primary font-bold">Total</TableHead>
-                <TableHead>Status</TableHead>
-                {canEditDelete && <TableHead className="text-center">Ações</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredFechamentos.map(f => {
-                const te = Number(f.dinheiro) + Number(f.pix) + Number(f.cartao);
-                return (
-                  <TableRow key={f.id}>
-                    <TableCell>{new Date(f.data + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="font-medium">{lojas.find(l => l.id === f.loja_id)?.nome ?? '-'}</TableCell>
-                    <TableCell className="text-right">{fmt(Number(f.dinheiro))}</TableCell>
-                    <TableCell className="text-right">{fmt(Number(f.pix))}</TableCell>
-                    <TableCell className="text-right">{fmt(Number(f.cartao))}</TableCell>
-                    <TableCell className="text-right">{fmt(Number(f.saidas))}</TableCell>
-                    <TableCell className="text-right font-bold text-primary">{fmt(te)}</TableCell>
-                    <TableCell>
-                      {isAdmin ? (
-                        <Select value={f.status} onValueChange={async (v) => {
-                          await supabase.from('fechamentos').update({ status: v as any }).eq('id', f.id);
-                          fetchFechamentos();
-                        }}>
-                          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ABERTO">Aberto</SelectItem>
-                            <SelectItem value="FECHADO_PENDENTE_CONCILIACAO">Fechado</SelectItem>
-                            <SelectItem value="CONCILIADO_OK">Conciliado OK</SelectItem>
-                            <SelectItem value="CONCILIADO_DIVERGENCIA">Divergência</SelectItem>
-                            <SelectItem value="REABERTO">Reaberto</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge variant={f.status === 'ABERTO' ? 'secondary' : 'default'}>
-                          {f.status === 'ABERTO' ? 'Aberto' : f.status === 'FECHADO_PENDENTE_CONCILIACAO' ? 'Fechado' : f.status}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    {canEditDelete && (
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => openEdit(f)} title="Editar"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => openDelete(f.id)} title="Excluir"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
+      {/* Cards saldo automático */}
+      <div className="grid gap-3 md:grid-cols-4">
+        <Card className="bg-muted/50"><CardContent className="py-4">
+          <p className="text-xs text-muted-foreground">Saldo Inicial (mês)</p>
+          <p className="text-lg font-bold">{fmt(totalSaldoInicialMes)}</p>
+        </CardContent></Card>
+        <Card className="bg-success/10 border-success/30"><CardContent className="py-4">
+          <p className="text-xs text-muted-foreground">Créditos (entradas + suprimentos)</p>
+          <p className="text-lg font-bold text-success">+ {fmt(totalEntradasMes)}</p>
+        </CardContent></Card>
+        <Card className="bg-destructive/10 border-destructive/30"><CardContent className="py-4">
+          <p className="text-xs text-muted-foreground">Débitos (saídas + sangrias)</p>
+          <p className="text-lg font-bold text-destructive">- {fmt(totalSaidasMes)}</p>
+        </CardContent></Card>
+        <Card className={sobrandoCaixaMes >= 0 ? 'bg-primary/10 border-primary/30' : 'bg-destructive/10 border-destructive/30'}>
+          <CardContent className="py-4">
+            <p className="text-xs text-muted-foreground">Sobrando em Caixa</p>
+            <p className={`text-lg font-bold ${sobrandoCaixaMes >= 0 ? 'text-primary' : 'text-destructive'}`}>{fmt(sobrandoCaixaMes)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">cálculo automático</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="lancamentos" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+          <TabsTrigger value="vales">Vale Funcionário</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lancamentos">
+          <Card>
+            <CardContent className="pt-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Loja</TableHead>
+                    <TableHead className="text-right">Dinheiro</TableHead>
+                    <TableHead className="text-right">Pix</TableHead>
+                    <TableHead className="text-right">Cartão</TableHead>
+                    <TableHead className="text-right">Saídas</TableHead>
+                    <TableHead className="text-right text-primary font-bold">Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    {canEditDelete && <TableHead className="text-center">Ações</TableHead>}
                   </TableRow>
-                );
-              })}
-              {filteredFechamentos.length === 0 && (
-                <TableRow><TableCell colSpan={canEditDelete ? 9 : 8} className="text-center text-muted-foreground py-8">Nenhum lançamento encontrado</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredFechamentos.map(f => {
+                    const te = Number(f.dinheiro) + Number(f.pix) + Number(f.cartao);
+                    return (
+                      <TableRow key={f.id}>
+                        <TableCell>{new Date(f.data + 'T12:00:00').toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="font-medium">{lojas.find(l => l.id === f.loja_id)?.nome ?? '-'}</TableCell>
+                        <TableCell className="text-right">{fmt(Number(f.dinheiro))}</TableCell>
+                        <TableCell className="text-right">{fmt(Number(f.pix))}</TableCell>
+                        <TableCell className="text-right">{fmt(Number(f.cartao))}</TableCell>
+                        <TableCell className="text-right">{fmt(Number(f.saidas))}</TableCell>
+                        <TableCell className="text-right font-bold text-primary">{fmt(te)}</TableCell>
+                        <TableCell>
+                          {isAdmin ? (
+                            <Select value={f.status} onValueChange={async (v) => {
+                              await supabase.from('fechamentos').update({ status: v as any }).eq('id', f.id);
+                              fetchFechamentos();
+                            }}>
+                              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ABERTO">Aberto</SelectItem>
+                                <SelectItem value="FECHADO_PENDENTE_CONCILIACAO">Fechado</SelectItem>
+                                <SelectItem value="CONCILIADO_OK">Conciliado OK</SelectItem>
+                                <SelectItem value="CONCILIADO_DIVERGENCIA">Divergência</SelectItem>
+                                <SelectItem value="REABERTO">Reaberto</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant={f.status === 'ABERTO' ? 'secondary' : 'default'}>
+                              {f.status === 'ABERTO' ? 'Aberto' : f.status === 'FECHADO_PENDENTE_CONCILIACAO' ? 'Fechado' : f.status}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        {canEditDelete && (
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openEdit(f)} title="Editar">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => openDelete(f.id)} title="Excluir">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                  {filteredFechamentos.length === 0 && (
+                    <TableRow><TableCell colSpan={canEditDelete ? 9 : 8} className="text-center text-muted-foreground py-8">Nenhum lançamento encontrado</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vales">
+          {filterLoja === 'todas' ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Selecione uma loja específica no filtro acima para gerenciar os vales.
+            </CardContent></Card>
+          ) : profile?.empresa_id ? (
+            <ValesFuncionariosTab
+              lojaId={filterLoja}
+              empresaId={profile.empresa_id}
+              mes={filterMes}
+            />
+          ) : null}
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
