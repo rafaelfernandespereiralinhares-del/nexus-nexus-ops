@@ -248,6 +248,7 @@ export default function CaixaDiario() {
           <TabsList>
             <TabsTrigger value="caixa">Caixa</TabsTrigger>
             <TabsTrigger value="saidas">Saídas Diárias</TabsTrigger>
+            <TabsTrigger value="vales">Vale Funcionário</TabsTrigger>
           </TabsList>
 
           <TabsContent value="caixa">
